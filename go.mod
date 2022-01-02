@@ -1,4 +1,4 @@
-module github.com/samlitowitz/goimportcycleviz
+module github.com/samlitowitz/goimportcycle
 
 go 1.17
 
