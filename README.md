@@ -1,4 +1,4 @@
-# Go Import Cyle
+# Go Import Cycle
 [![Go Report Card](https://goreportcard.com/badge/github.com/samlitowitz/goimportcycle)](https://goreportcard.com/report/github.com/samlitowitz/goimportcycle)
 
 `goimportcycle` is a tool to visualize Go imports resolved to the file level.
