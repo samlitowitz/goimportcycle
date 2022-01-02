@@ -15,7 +15,7 @@ import (
 
 type ImportGrapher struct {
 	modulePath                  string
-	typeDefFileByPackageVisitor *pkg.TypeDefFileByPackageVisitor
+	typeDefFileByPackageVisitor *pkg.ExportedDefFileByPackageVisitor
 
 	files map[pkg.FilePath]*File
 }
@@ -23,7 +23,7 @@ type ImportGrapher struct {
 func NewImportGrapher(modulePath string) *ImportGrapher {
 	return &ImportGrapher{
 		modulePath:                  modulePath,
-		typeDefFileByPackageVisitor: pkg.NewTypeDefFileByPackageVisitor(modulePath),
+		typeDefFileByPackageVisitor: pkg.NewExportedDefFileByPackageVisitor(modulePath),
 	}
 }
 
@@ -108,7 +108,7 @@ func (icd *ImportGrapher) buildImportDepGraph(
 		return nil
 	}
 	content := string(data)
-	fileByTypeByPackage := icd.typeDefFileByPackageVisitor.FileByTypeByPackage()
+	fileByTypeByPackage := icd.typeDefFileByPackageVisitor.FileByExportByPackage()
 
 	file, ok := icd.files[filePath]
 	if !ok {
@@ -128,18 +128,17 @@ func (icd *ImportGrapher) buildImportDepGraph(
 		if !ok {
 			continue
 		}
-		log.Println(".." + fileImport.Path)
 
 		for typ, defFile := range fileByType {
 			externalType := string(fileImport.Name) + "." + string(typ)
 			if !strings.Contains(content, externalType) {
 				continue
 			}
-			log.Println("...." + defFile)
 			importedFile, ok := icd.files[defFile]
 			if !ok {
 				importedFile = &File{
 					Name:    defFile,
+					Package: fileImport.Path,
 					Imports: make(map[pkg.ImportPath]*File),
 				}
 				icd.files[defFile] = importedFile
