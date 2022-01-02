@@ -53,7 +53,7 @@ func Marshal(files []*internal.File) ([]byte, error) {
 
 		_, err = buf.WriteString(fmt.Sprintf("\t\tlabel=\"%s\";\n", subgraphImportPath))
 		for node := range nodes {
-			_, err = buf.WriteString(fmt.Sprintf("\t\t%s\n", node))
+			_, err = buf.WriteString(fmt.Sprintf("\t\t%s;\n", node))
 			if err != nil {
 				return nil, err
 			}

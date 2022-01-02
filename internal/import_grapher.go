@@ -121,8 +121,6 @@ func (icd *ImportGrapher) buildImportDepGraph(
 		icd.files[filePath] = file
 	}
 
-	log.Println(filePath)
-
 	for _, fileImport := range fileImports {
 		fileByType, ok := fileByTypeByPackage[fileImport.Path]
 		if !ok {
