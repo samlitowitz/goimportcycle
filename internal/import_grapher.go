@@ -13,53 +13,35 @@ import (
 	"strings"
 )
 
-type ImportCycleDetector struct {
+type ImportGrapher struct {
 	modulePath                  string
 	typeDefFileByPackageVisitor *pkg.TypeDefFileByPackageVisitor
 
-	files    map[pkg.FilePath]*File
-	packages map[pkg.ImportPath]*Package
+	files map[pkg.FilePath]*File
 }
 
-func NewImportCycleDetector(modulePath string) *ImportCycleDetector {
-	return &ImportCycleDetector{
+func NewImportGrapher(modulePath string) *ImportGrapher {
+	return &ImportGrapher{
 		modulePath:                  modulePath,
 		typeDefFileByPackageVisitor: pkg.NewTypeDefFileByPackageVisitor(modulePath),
 	}
 }
 
-func (icd *ImportCycleDetector) Run(path string) ([]*Package, error) {
+func (icd *ImportGrapher) Run(path string) (map[pkg.FilePath]*File, error) {
 	err := filepath.WalkDir(path, icd.buildImportsAndTypeDefs)
 	if err != nil {
 		return nil, err
 	}
 	icd.files = make(map[pkg.FilePath]*File)
-	icd.packages = make(map[pkg.ImportPath]*Package)
 	err = filepath.WalkDir(path, icd.buildImportDepGraph)
 	if err != nil {
 		return nil, err
 	}
 
-	count := 0
-	for _, file := range icd.files {
-		for _, pkg := range file.Imports {
-			if _, ok := icd.packages[pkg.ImportPath]; ok {
-				continue
-			}
-			icd.packages[pkg.ImportPath] = pkg
-			count++
-		}
-	}
-
-	pkgs := make([]*Package, len(icd.packages))
-	for _, pkg := range icd.packages {
-		pkgs = append(pkgs, pkg)
-	}
-
-	return pkgs, nil
+	return icd.files, nil
 }
 
-func (icd *ImportCycleDetector) buildImportsAndTypeDefs(
+func (icd *ImportGrapher) buildImportsAndTypeDefs(
 	path string,
 	info fs.DirEntry,
 	err error,
@@ -93,7 +75,7 @@ func (icd *ImportCycleDetector) buildImportsAndTypeDefs(
 	return nil
 }
 
-func (icd *ImportCycleDetector) buildImportDepGraph(
+func (icd *ImportGrapher) buildImportDepGraph(
 	path string,
 	info fs.DirEntry,
 	err error,
@@ -130,9 +112,11 @@ func (icd *ImportCycleDetector) buildImportDepGraph(
 
 	file, ok := icd.files[filePath]
 	if !ok {
+		filePackage := filepath.Dir(string(filePath))
 		file = &File{
 			Name:    filePath,
-			Imports: make(map[pkg.ImportPath]*Package),
+			Package: pkg.ImportPath(filePackage),
+			Imports: make(map[pkg.ImportPath]*File),
 		}
 		icd.files[filePath] = file
 	}
@@ -144,14 +128,6 @@ func (icd *ImportCycleDetector) buildImportDepGraph(
 		if !ok {
 			continue
 		}
-		//importedPkg, ok := icd.packages[fileImport.Path]
-		//if !ok {
-		//	icd.packages[fileImport.Path] = &Package{
-		//		ImportPath: fileImport.Path,
-		//		Files:      make(map[pkg.FilePath]*File, 0),
-		//	}
-		//	importedPkg, _ = icd.packages[fileImport.Path]
-		//}
 		log.Println(".." + fileImport.Path)
 
 		for typ, defFile := range fileByType {
@@ -160,19 +136,15 @@ func (icd *ImportCycleDetector) buildImportDepGraph(
 				continue
 			}
 			log.Println("...." + defFile)
-			//file.Imports[fileImport.Path] = importedPkg
-			//
-			//importedFile, ok := icd.files[defFile]
-			//if !ok {
-			//	icd.files[defFile] = &File{
-			//		Name:    defFile,
-			//		Imports: make(map[pkg.ImportPath]*Package),
-			//	}
-			//	importedFile, _ = icd.files[defFile]
-			//}
-			//if _, ok := importedPkg.Files[defFile]; !ok {
-			//	importedPkg.Files[defFile] = importedFile
-			//}
+			importedFile, ok := icd.files[defFile]
+			if !ok {
+				importedFile = &File{
+					Name:    defFile,
+					Imports: make(map[pkg.ImportPath]*File),
+				}
+				icd.files[defFile] = importedFile
+			}
+			file.Imports[fileImport.Path] = importedFile
 		}
 	}
 

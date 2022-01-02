@@ -4,5 +4,6 @@ import "github.com/samlitowitz/goimportcycleviz/internal/ast/pkg"
 
 type File struct {
 	Name    pkg.FilePath
-	Imports map[pkg.ImportPath]*Package
+	Package pkg.ImportPath
+	Imports map[pkg.ImportPath]*File
 }
