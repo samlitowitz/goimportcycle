@@ -1,8 +1,8 @@
 package a
 
 import (
-	"github.com/samlitowitz/goimportcycleviz/examples/importcycle/b"
-	c "github.com/samlitowitz/goimportcycleviz/examples/importcycle/b"
+	"github.com/samlitowitz/goimportcycle/examples/importcycle/b"
+	c "github.com/samlitowitz/goimportcycle/examples/importcycle/b"
 )
 
 type A struct {

@@ -2,7 +2,6 @@ package internal
 
 import (
 	"fmt"
-	"github.com/samlitowitz/goimportcycleviz/internal/ast/pkg"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -11,6 +10,8 @@ import (
 	"log"
 	"path/filepath"
 	"strings"
+
+	"github.com/samlitowitz/goimportcycle/internal/ast/pkg"
 )
 
 type ImportGrapher struct {

@@ -3,9 +3,10 @@ package dot
 import (
 	"bytes"
 	"fmt"
-	"github.com/samlitowitz/goimportcycleviz/internal"
-	"github.com/samlitowitz/goimportcycleviz/internal/ast/pkg"
 	"path/filepath"
+
+	"github.com/samlitowitz/goimportcycle/internal"
+	"github.com/samlitowitz/goimportcycle/internal/ast/pkg"
 )
 
 func Marshal(files []*internal.File) ([]byte, error) {
@@ -81,8 +82,10 @@ func Marshal(files []*internal.File) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-type nodeID string
-type subgraphID string
+type (
+	nodeID     string
+	subgraphID string
+)
 
 type marshaler struct {
 	edges map[nodeID]map[nodeID]struct{}

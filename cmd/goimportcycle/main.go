@@ -2,12 +2,13 @@ package main
 
 import (
 	"flag"
-	"github.com/samlitowitz/goimportcycleviz/internal"
-	"github.com/samlitowitz/goimportcycleviz/internal/dot"
-	"github.com/samlitowitz/goimportcycleviz/internal/modfile"
 	"io/ioutil"
 	"log"
 	"path/filepath"
+
+	"github.com/samlitowitz/goimportcycle/internal"
+	"github.com/samlitowitz/goimportcycle/internal/dot"
+	"github.com/samlitowitz/goimportcycle/internal/modfile"
 )
 
 func main() {
@@ -49,5 +50,4 @@ func main() {
 
 		ioutil.WriteFile(dotFile, output, 0644)
 	}
-
 }

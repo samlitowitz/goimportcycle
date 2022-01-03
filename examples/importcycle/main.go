@@ -2,7 +2,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/samlitowitz/goimportcycleviz/examples/importcycle/a"
+
+	"github.com/samlitowitz/goimportcycle/examples/importcycle/a"
 )
 
 func main() {

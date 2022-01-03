@@ -1,6 +1,6 @@
 package internal
 
-import "github.com/samlitowitz/goimportcycleviz/internal/ast/pkg"
+import "github.com/samlitowitz/goimportcycle/internal/ast/pkg"
 
 type File struct {
 	Name    pkg.FilePath
