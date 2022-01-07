@@ -13,6 +13,13 @@ goimportcycle -path examples/importcycle/ -dot imports.dot
 dot -Tpng -o assets/example.png imports.dot
 ```
 
+![Example import graph resolved to the file level](assets/example_file.png?raw=true "Example import graph resolved to the file level")
+
+```shell
+cd examples
+goimportcycle -path examples/importcycle/ -dot imports.dot -resolution package
+dot -Tpng -o assets/example.png imports.dot
+```
 ![Example import graph resolved to the package level](assets/example_package.png?raw=true "Example import graph resolved to the package level")
 
 # Tasks that probably should get done
