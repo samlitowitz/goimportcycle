@@ -2,20 +2,22 @@ package main
 
 import (
 	"flag"
+	"github.com/samlitowitz/goimportcycle/internal/ast"
+	"github.com/samlitowitz/goimportcycle/internal/file"
+	"github.com/samlitowitz/goimportcycle/internal/pkg"
 	"io/ioutil"
 	"log"
+	"os"
 	"path/filepath"
 
-	"github.com/samlitowitz/goimportcycle/internal"
-	"github.com/samlitowitz/goimportcycle/internal/dot"
 	"github.com/samlitowitz/goimportcycle/internal/modfile"
 )
 
 func main() {
-	var path string
-	var dotFile string
-	flag.StringVar(&path, "path", "./", "Files to process")
+	var dotFile, path, resolution string
 	flag.StringVar(&dotFile, "dot", "", "DOT file for output")
+	flag.StringVar(&path, "path", "./", "Files to process")
+	flag.StringVar(&resolution, "resolution", "file", "Resolution, 'file' or 'package'")
 	flag.Parse()
 
 	absPath, err := filepath.Abs(path)
@@ -31,23 +33,32 @@ func main() {
 		log.Fatal(err)
 	}
 
-	icd := internal.NewImportGrapher(modulePath)
-	filesByFilePath, err := icd.Run(path)
+	v := ast.NewVisitor(modulePath)
+	err = filepath.WalkDir(path, v.WalkDirFn)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	files := make([]*internal.File, 0, len(filesByFilePath))
-	for _, file := range filesByFilePath {
-		files = append(files, file)
-	}
+	var output []byte
 
-	if dotFile != "" {
-		output, err := dot.Marshal(files)
+	switch resolution {
+	case "file":
+		output, err = file.Marshal(modulePath, v.Packages())
 		if err != nil {
 			log.Fatal(err)
 		}
-
-		ioutil.WriteFile(dotFile, output, 0644)
+	case "package":
+		output, err = pkg.Marshal(modulePath, v.Packages())
+		if err != nil {
+			log.Fatal(err)
+		}
+	default:
+		log.Fatal("resolution must be 'file' or 'package'")
 	}
+
+	if dotFile == "" {
+		os.Stdout.Write(output)
+		return
+	}
+	ioutil.WriteFile(dotFile, output, 0644)
 }

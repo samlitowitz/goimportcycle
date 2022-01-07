@@ -19,10 +19,10 @@ func (a *A) ID() ID {
 	return a.id
 }
 
-func AAsIDer(a *A) b.IDer {
-	return b.IDer(a)
+func IsIDer(i c.IDer) bool {
+	return true
 }
 
-func IsIDer(i c.IDer) bool {
+func IsIDerToo(i b.IDer) bool {
 	return true
 }
