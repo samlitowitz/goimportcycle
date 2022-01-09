@@ -40,6 +40,10 @@ func Marshal(modulePath string, pkgs []*ast.Package) ([]byte, error) {
 	fileGraph := b.FileGraph()
 	for fromPkgNodeID, toPkgNodeIDs := range cyclesByOrigin {
 		fromPkgNode := pkgGraph.Node(fromPkgNodeID).(*packageNode)
+		if fromPkgNode == nil {
+			continue
+		}
+		fromPkgNode.SetInCycle(true)
 		for _, fromFile := range fromPkgNode.Package().Files {
 			fromFileNodeID, ok := b.GetFileNodeID(fromFile)
 			if !ok {
@@ -86,8 +90,12 @@ func Marshal(modulePath string, pkgs []*ast.Package) ([]byte, error) {
 
 		buf.WriteString(fmt.Sprintf("\tsubgraph cluster%d {\n", pkgNodeID))
 		buf.WriteString(fmt.Sprintf("\t\tlabel=\"%s\";\n", packageLabel(modulePath, pkgNode.Package())))
+		if pkgNode.GetInCycle() {
+			buf.WriteString("\t\tstyle=\"filled\";\n")
+			buf.WriteString("\t\tcolor=\"#e5a3a3\";\n")
+		}
 
-		for fileNodeID, _ := range fileNodeIDs {
+		for fileNodeID := range fileNodeIDs {
 			// create nodes
 			fileNode := fileGraph.Node(fileNodeID).(*fileNode)
 			if fileNode == nil {
@@ -149,8 +157,9 @@ func (e *packageEdge) ReversedEdge() graph.Edge {
 }
 
 type packageNode struct {
-	id  int64
-	pkg *ast.Package
+	id      int64
+	pkg     *ast.Package
+	inCycle bool
 }
 
 func (n *packageNode) ID() int64 {
@@ -159,6 +168,14 @@ func (n *packageNode) ID() int64 {
 
 func (n *packageNode) Package() *ast.Package {
 	return n.pkg
+}
+
+func (n *packageNode) GetInCycle() bool {
+	return n.inCycle
+}
+
+func (n *packageNode) SetInCycle(v bool) {
+	n.inCycle = v
 }
 
 type fileEdge struct {
