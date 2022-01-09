@@ -85,6 +85,9 @@ func (v *Visitor) Visit(n ast.Node) ast.Visitor {
 		return v
 
 	case *ast.File:
+		if v.curPkg == nil {
+			return nil
+		}
 		filePath, ok := v.filePathByAst[n]
 		if !ok {
 			return nil
@@ -93,6 +96,7 @@ func (v *Visitor) Visit(n ast.Node) ast.Visitor {
 		file, ok := v.filesByPath[filePath]
 		if !ok {
 			file = &File{
+				Package: v.curPkg,
 				Path:    filePath,
 				Imports: make(map[string]*Import),
 				Exports: make(map[string]struct{}),

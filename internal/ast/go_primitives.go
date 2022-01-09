@@ -7,6 +7,7 @@ type Package struct {
 }
 
 type File struct {
+	Package *Package
 	Path    string
 	Imports map[string]*Import
 
