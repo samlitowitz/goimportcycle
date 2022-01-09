@@ -15,7 +15,7 @@ dot -Tpng -o assets/example.png imports.dot
 
 ![Example import graph resolved to the file level](assets/example_file.png?raw=true "Example import graph resolved to the file level")
 
-Red lines indicate files causing import cycles between packages.
+Red lines indicate files causing import cycles between packages. Packages involved in a cycle have their backgrounds colored red.
 
 ```shell
 cd examples
