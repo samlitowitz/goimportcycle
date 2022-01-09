@@ -15,12 +15,16 @@ dot -Tpng -o assets/example.png imports.dot
 
 ![Example import graph resolved to the file level](assets/example_file.png?raw=true "Example import graph resolved to the file level")
 
+Red lines indicate files causing import cycles between packages.
+
 ```shell
 cd examples
 goimportcycle -path examples/importcycle/ -dot imports.dot -resolution package
 dot -Tpng -o assets/example.png imports.dot
 ```
 ![Example import graph resolved to the package level](assets/example_package.png?raw=true "Example import graph resolved to the package level")
+
+Red lines indicate import cycles between packages.
 
 # Tasks that probably should get done
 1. Make output graphs nicely organized (vague)
