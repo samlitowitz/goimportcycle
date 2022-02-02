@@ -3,6 +3,7 @@ package file
 import (
 	"bytes"
 	"fmt"
+	"github.com/samlitowitz/goimportcycle/internal"
 	"github.com/samlitowitz/goimportcycle/internal/ast"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/simple"
@@ -10,7 +11,7 @@ import (
 	"strings"
 )
 
-func Marshal(modulePath string, pkgs []*ast.Package) ([]byte, error) {
+func Marshal(cfg *internal.Config, modulePath string, pkgs []*ast.Package) ([]byte, error) {
 	buf := &bytes.Buffer{}
 	buf.WriteString("digraph {\n")
 	buf.WriteString("\tlabelloc=\"t\";\n")
@@ -70,6 +71,18 @@ func Marshal(modulePath string, pkgs []*ast.Package) ([]byte, error) {
 				}
 				curEdge.SetInCycle(true)
 				fileGraph.SetEdge(curEdge)
+
+				// update file graph nodes with inCycle
+				fromFileNode := fileGraph.Node(fromFileNodeID).(*fileNode)
+				if fromFileNode == nil {
+					continue
+				}
+				toFileNode := fileGraph.Node(toFileNodeID).(*fileNode)
+				if toFileNode == nil {
+					continue
+				}
+				fromFileNode.SetInCycle(true)
+				toFileNode.SetInCycle(true)
 			}
 		}
 	}
@@ -90,10 +103,12 @@ func Marshal(modulePath string, pkgs []*ast.Package) ([]byte, error) {
 
 		buf.WriteString(fmt.Sprintf("\tsubgraph cluster%d {\n", pkgNodeID))
 		buf.WriteString(fmt.Sprintf("\t\tlabel=\"%s\";\n", packageLabel(modulePath, pkgNode.Package())))
+		buf.WriteString("\t\tstyle=\"filled\";\n")
+		pkgFillColor := cfg.PackageFill.Hex()
 		if pkgNode.GetInCycle() {
-			buf.WriteString("\t\tstyle=\"filled\";\n")
-			buf.WriteString("\t\tcolor=\"#e5a3a3\";\n")
+			pkgFillColor = cfg.CyclePackageFill.Hex()
 		}
+		buf.WriteString(fmt.Sprintf("\t\tfillcolor=\"%s\";\n", pkgFillColor))
 
 		for fileNodeID := range fileNodeIDs {
 			// create nodes
@@ -101,7 +116,18 @@ func Marshal(modulePath string, pkgs []*ast.Package) ([]byte, error) {
 			if fileNode == nil {
 				continue
 			}
-			buf.WriteString(fmt.Sprintf("\t\tn%d [label=\"%s\"];\n", fileNode.ID(), fileLabel(modulePath, fileNode.File())))
+			fileFillColor := cfg.FileFill.Hex()
+			if fileNode.GetInCycle() {
+				fileFillColor = cfg.CycleFileFill.Hex()
+			}
+			buf.WriteString(
+				fmt.Sprintf(
+					"\t\tn%d [label=\"%s\", style=\"filled\", fillcolor=\"%s\"];\n",
+					fileNode.ID(),
+					fileLabel(modulePath, fileNode.File()),
+					fileFillColor,
+				),
+			)
 			exports := fileNode.File().Exports
 			if len(exports) == 0 {
 				continue
@@ -120,11 +146,18 @@ func Marshal(modulePath string, pkgs []*ast.Package) ([]byte, error) {
 	fileEdges := fileGraph.Edges()
 	for fileEdges.Next() != false {
 		curEdge := fileEdges.Edge().(*fileEdge)
-		attrs := ""
+		edgeColor := cfg.Line.Hex()
 		if curEdge.GetInCycle() {
-			attrs = "[color=\"red\"]"
+			edgeColor = cfg.CycleLine.Hex()
 		}
-		buf.WriteString(fmt.Sprintf("\tn%d -> n%d %s;\n", curEdge.From().ID(), curEdge.To().ID(), attrs))
+		buf.WriteString(
+			fmt.Sprintf(
+				"\tn%d -> n%d [color=\"%s\"];\n",
+				curEdge.From().ID(),
+				curEdge.To().ID(),
+				edgeColor,
+			),
+		)
 		references := curEdge.References()
 		if len(references) == 0 {
 			continue
@@ -213,8 +246,9 @@ func (e *fileEdge) SetInCycle(v bool) {
 }
 
 type fileNode struct {
-	id   int64
-	file *ast.File
+	id      int64
+	file    *ast.File
+	inCycle bool
 }
 
 func (n *fileNode) ID() int64 {
@@ -223,6 +257,14 @@ func (n *fileNode) ID() int64 {
 
 func (n *fileNode) File() *ast.File {
 	return n.file
+}
+
+func (n *fileNode) GetInCycle() bool {
+	return n.inCycle
+}
+
+func (n *fileNode) SetInCycle(v bool) {
+	n.inCycle = v
 }
 
 type builder struct {

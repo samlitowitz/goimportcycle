@@ -3,6 +3,7 @@ package pkg
 import (
 	"bytes"
 	"fmt"
+	"github.com/samlitowitz/goimportcycle/internal"
 	"github.com/samlitowitz/goimportcycle/internal/ast"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/simple"
@@ -10,7 +11,7 @@ import (
 	"strings"
 )
 
-func Marshal(modulePath string, pkgs []*ast.Package) ([]byte, error) {
+func Marshal(cfg *internal.Config, modulePath string, pkgs []*ast.Package) ([]byte, error) {
 	buf := &bytes.Buffer{}
 	buf.WriteString("digraph {\n")
 	buf.WriteString("\tlabelloc=\"t\";\n")
@@ -20,15 +21,6 @@ func Marshal(modulePath string, pkgs []*ast.Package) ([]byte, error) {
 
 	b := NewBuilder()
 	b.Build(pkgs)
-
-	nodes := b.Nodes()
-	for nodes.Next() != false {
-		curNode, ok := nodes.Node().(*node)
-		if !ok {
-			continue
-		}
-		buf.WriteString(fmt.Sprintf("\tn%d [label=\"%s\"];\n", curNode.ID(), packageLabel(modulePath, curNode.Package())))
-	}
 
 	g := b.Graph()
 	cycles := topo.DirectedCyclesIn(g)
@@ -40,18 +32,45 @@ func Marshal(modulePath string, pkgs []*ast.Package) ([]byte, error) {
 			}
 			curEdge.SetInCycle(true)
 			g.SetEdge(curEdge)
+
+			// update file graph nodes with inCycle
+			fromFileNode := g.Node(cycle[i].ID()).(*node)
+			if fromFileNode == nil {
+				continue
+			}
+			toFileNode := g.Node(cycle[i+1].ID()).(*node)
+			if toFileNode == nil {
+				continue
+			}
+			fromFileNode.SetInCycle(true)
+			toFileNode.SetInCycle(true)
 		}
+	}
+
+	nodes := b.Nodes()
+	for nodes.Next() != false {
+		curNode, ok := nodes.Node().(*node)
+		if !ok {
+			continue
+		}
+		fillColor := cfg.PackageFill.Hex()
+		if curNode.GetInCycle() {
+			fillColor = cfg.CyclePackageFill.Hex()
+		}
+
+		buf.WriteString(fmt.Sprintf("\tn%d [label=\"%s\", style=\"filled\", fillcolor=\"%s\"];\n", curNode.ID(), packageLabel(modulePath, curNode.Package()), fillColor))
 	}
 
 	edges := b.Edges()
 	for edges.Next() != false {
 		curEdge := edges.Edge().(*edge)
-		attrs := ""
-		if curEdge.GetInCycle() {
-			attrs = "[color=\"red\"]"
-		}
-		buf.WriteString(fmt.Sprintf("\tn%d -> n%d %s;\n", curEdge.From().ID(), curEdge.To().ID(), attrs))
+		buf.WriteString(fmt.Sprintf("\tn%d -> n%d [color=\"%s\"];\n", curEdge.From().ID(), curEdge.To().ID(), cfg.Line.Hex()))
 	}
+
+	// create legend
+	// file in cycle
+	// pkg in cycle
+	// edge in cycle
 	buf.WriteString("}\n")
 
 	return buf.Bytes(), nil
@@ -87,8 +106,9 @@ func (e *edge) SetInCycle(v bool) {
 }
 
 type node struct {
-	id  int64
-	pkg *ast.Package
+	id      int64
+	pkg     *ast.Package
+	inCycle bool
 }
 
 func (n *node) ID() int64 {
@@ -97,6 +117,14 @@ func (n *node) ID() int64 {
 
 func (n *node) Package() *ast.Package {
 	return n.pkg
+}
+
+func (n *node) GetInCycle() bool {
+	return n.inCycle
+}
+
+func (n *node) SetInCycle(inCycle bool) {
+	n.inCycle = inCycle
 }
 
 type builder struct {

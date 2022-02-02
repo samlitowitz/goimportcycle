@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"github.com/samlitowitz/goimportcycle/internal"
 	"github.com/samlitowitz/goimportcycle/internal/ast"
 	"github.com/samlitowitz/goimportcycle/internal/file"
 	"github.com/samlitowitz/goimportcycle/internal/pkg"
@@ -39,16 +40,17 @@ func main() {
 		log.Fatal(err)
 	}
 
+	cfg := internal.True
 	var output []byte
 
 	switch resolution {
 	case "file":
-		output, err = file.Marshal(modulePath, v.Packages())
+		output, err = file.Marshal(cfg, modulePath, v.Packages())
 		if err != nil {
 			log.Fatal(err)
 		}
 	case "package":
-		output, err = pkg.Marshal(modulePath, v.Packages())
+		output, err = pkg.Marshal(internal.True, modulePath, v.Packages())
 		if err != nil {
 			log.Fatal(err)
 		}
