@@ -8,7 +8,6 @@
 
 # Usage
 ```shell
-cd examples
 goimportcycle -path examples/importcycle/ -dot imports.dot
 dot -Tpng -o assets/example.png imports.dot
 ```
@@ -18,7 +17,6 @@ dot -Tpng -o assets/example.png imports.dot
 Red lines indicate files causing import cycles between packages. Packages involved in a cycle have their backgrounds colored red.
 
 ```shell
-cd examples
 goimportcycle -path examples/importcycle/ -dot imports.dot -resolution package
 dot -Tpng -o assets/example.png imports.dot
 ```
