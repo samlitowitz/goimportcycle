@@ -12,7 +12,7 @@ goimportcycle -path examples/importcycle/ -dot imports.dot
 dot -Tpng -o assets/example.png imports.dot
 ```
 
-![Example import graph resolved to the file level](assets/example_file.png?raw=true "Example import graph resolved to the file level")
+![Example import graph resolved to the file level](assets/examples/file.png?raw=true "Example import graph resolved to the file level")
 
 Red lines indicate files causing import cycles between packages. Packages involved in a cycle have their backgrounds colored red.
 
@@ -20,7 +20,7 @@ Red lines indicate files causing import cycles between packages. Packages involv
 goimportcycle -path examples/importcycle/ -dot imports.dot -resolution package
 dot -Tpng -o assets/example.png imports.dot
 ```
-![Example import graph resolved to the package level](assets/example_package.png?raw=true "Example import graph resolved to the package level")
+![Example import graph resolved to the package level](assets/examples/package.png?raw=true "Example import graph resolved to the package level")
 
 Red lines indicate import cycles between packages.
 
