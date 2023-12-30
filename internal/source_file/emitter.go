@@ -8,12 +8,12 @@ import (
 type Emitter struct {
 	includeNonGoFiles bool
 
-	output chan<- string
+	out chan<- string
 }
 
 func NewEmitter(opts ...Option) (*Emitter, <-chan string) {
 	output := make(chan string)
-	emitter := &Emitter{output: output}
+	emitter := &Emitter{out: output}
 
 	for _, opt := range opts {
 		opt.apply(emitter)
@@ -33,13 +33,13 @@ func (emitter *Emitter) WalkDirFunc(path string, d fs.DirEntry, err error) error
 		return nil
 	}
 
-	emitter.output <- path
+	emitter.out <- path
 
 	return nil
 }
 
 func (emitter *Emitter) Close() {
-	close(emitter.output)
+	close(emitter.out)
 }
 
 // https://uptrace.dev/blog/golang-functional-options.html
