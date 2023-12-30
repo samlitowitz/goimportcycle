@@ -1,19 +1,19 @@
-package internal
+package source_file
 
 import (
 	"io/fs"
 	"path/filepath"
 )
 
-type SourceFileEmitter struct {
+type Emitter struct {
 	includeNonGoFiles bool
 
 	output chan<- string
 }
 
-func NewSourceFileEmitter(opts ...Option) (*SourceFileEmitter, <-chan string) {
+func NewEmitter(opts ...Option) (*Emitter, <-chan string) {
 	output := make(chan string)
-	emitter := &SourceFileEmitter{output: output}
+	emitter := &Emitter{output: output}
 
 	for _, opt := range opts {
 		opt.apply(emitter)
@@ -22,7 +22,7 @@ func NewSourceFileEmitter(opts ...Option) (*SourceFileEmitter, <-chan string) {
 	return emitter, output
 }
 
-func (emitter *SourceFileEmitter) WalkDirFunc(path string, d fs.DirEntry, err error) error {
+func (emitter *Emitter) WalkDirFunc(path string, d fs.DirEntry, err error) error {
 	// any error stops all processing
 	if err != nil {
 		return err
@@ -38,18 +38,18 @@ func (emitter *SourceFileEmitter) WalkDirFunc(path string, d fs.DirEntry, err er
 	return nil
 }
 
-func (emitter *SourceFileEmitter) Close() {
+func (emitter *Emitter) Close() {
 	close(emitter.output)
 }
 
 // https://uptrace.dev/blog/golang-functional-options.html
 
 type Option interface {
-	apply(emitter *SourceFileEmitter)
+	apply(emitter *Emitter)
 }
 
-type option func(emitter *SourceFileEmitter)
+type option func(emitter *Emitter)
 
-func (fn option) apply(emitter *SourceFileEmitter) {
+func (fn option) apply(emitter *Emitter) {
 	fn(emitter)
 }

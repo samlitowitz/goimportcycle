@@ -1,4 +1,4 @@
-package internal_test
+package source_file_test
 
 import (
 	"os"
@@ -6,7 +6,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/samlitowitz/goimportcycle/internal"
+	"github.com/samlitowitz/goimportcycle/internal/source_file"
 )
 
 func TestSourceFileEmitter_WalkDirFunc_EmitsNothingAfterError(t *testing.T) {
@@ -29,7 +29,7 @@ func TestSourceFileEmitter_WalkDirFunc_EmitsNothingAfterError(t *testing.T) {
 	defer os.Chdir(origDir)
 	// -- END -- //
 
-	emitter, output := internal.NewSourceFileEmitter()
+	emitter, output := source_file.NewEmitter()
 	go func(output <-chan string) {
 		for range output {
 			t.Fatal("no directories should be emitted")
@@ -87,7 +87,7 @@ func TestSourceFileEmitter_WalkDirFunc_EmitsAppropriateFiles(t *testing.T) {
 
 	expectedFiles := makeTree(t, tree)
 
-	emitter, output := internal.NewSourceFileEmitter()
+	emitter, output := source_file.NewEmitter()
 	go func(output <-chan string, expectedFiles map[string]struct{}) {
 		for actualPath := range output {
 			if _, ok := expectedFiles[actualPath]; !ok {
