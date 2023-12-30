@@ -1,4 +1,4 @@
-package source_file_test
+package directory_test
 
 import (
 	"os"
@@ -6,10 +6,10 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/samlitowitz/goimportcycle/internal/source_file"
+	"github.com/samlitowitz/goimportcycle/internal/directory"
 )
 
-func TestSourceFileEmitter_WalkDirFunc_EmitsNothingAfterError(t *testing.T) {
+func TestEmitter_WalkDirFunc_EmitsNothingAfterError(t *testing.T) {
 	// REFURL: https://github.com/golang/go/blob/988b718f4130ab5b3ce5a5774e1a58e83c92a163/src/path/filepath/path_test.go#L600
 	// -- START -- //
 	if runtime.GOOS == "ios" {
@@ -29,7 +29,7 @@ func TestSourceFileEmitter_WalkDirFunc_EmitsNothingAfterError(t *testing.T) {
 	defer os.Chdir(origDir)
 	// -- END -- //
 
-	emitter, output := source_file.NewEmitter()
+	emitter, output := directory.NewEmitter()
 	go func(output <-chan string) {
 		for range output {
 			t.Fatal("no directories should be emitted")
@@ -43,7 +43,7 @@ func TestSourceFileEmitter_WalkDirFunc_EmitsNothingAfterError(t *testing.T) {
 	emitter.Close()
 }
 
-func TestSourceFileEmitter_WalkDirFunc_EmitsAppropriateFiles(t *testing.T) {
+func TestEmitter_WalkDirFunc_EmitsAppropriateDirectories(t *testing.T) {
 	// REFURL: https://github.com/golang/go/blob/988b718f4130ab5b3ce5a5774e1a58e83c92a163/src/path/filepath/path_test.go#L600
 	// -- START -- //
 	if runtime.GOOS == "ios" {
@@ -85,9 +85,9 @@ func TestSourceFileEmitter_WalkDirFunc_EmitsAppropriateFiles(t *testing.T) {
 		},
 	}
 
-	expectedFiles := makeTree(t, tree)
+	expectedDirectories := makeTree(t, tree)
 
-	emitter, output := source_file.NewEmitter()
+	emitter, output := directory.NewEmitter()
 	go func(output <-chan string, expectedFiles map[string]struct{}) {
 		for actualPath := range output {
 			if _, ok := expectedFiles[actualPath]; !ok {
@@ -105,7 +105,7 @@ func TestSourceFileEmitter_WalkDirFunc_EmitsAppropriateFiles(t *testing.T) {
 				missedPaths,
 			)
 		}
-	}(output, expectedFiles)
+	}(output, expectedDirectories)
 	err = filepath.WalkDir(tree.name, emitter.WalkDirFunc)
 	if err != nil {
 		t.Fatal(err)
@@ -129,7 +129,7 @@ func walkTree(n *Node, path string, f func(path string, n *Node)) {
 
 // REFURL: https://github.com/golang/go/blob/988b718f4130ab5b3ce5a5774e1a58e83c92a163/src/path/filepath/path_test.go#L488
 func makeTree(t *testing.T, tree *Node) map[string]struct{} {
-	files := make(map[string]struct{})
+	directories := make(map[string]struct{})
 	walkTree(tree, tree.name, func(path string, n *Node) {
 		if n.entries == nil {
 			fd, err := os.Create(path)
@@ -138,12 +138,12 @@ func makeTree(t *testing.T, tree *Node) map[string]struct{} {
 				return
 			}
 			fd.Close()
-			files[path] = struct{}{}
 		} else {
 			os.Mkdir(path, 0770)
+			directories[path] = struct{}{}
 		}
 	})
-	return files
+	return directories
 }
 
 // REFURL: https://github.com/golang/go/blob/988b718f4130ab5b3ce5a5774e1a58e83c92a163/src/path/filepath/path_test.go#L553
