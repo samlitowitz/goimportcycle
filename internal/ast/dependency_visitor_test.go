@@ -1109,6 +1109,185 @@ func (a A) FA() {}
 	}
 }
 
+func TestDependencyVisitor_Visit_EmitsSelectorExprs(t *testing.T) {
+	// REFURL: https://github.com/golang/go/blob/988b718f4130ab5b3ce5a5774e1a58e83c92a163/src/path/filepath/path_test.go#L600
+	// -- START -- //
+	if runtime.GOOS == "ios" {
+		restore := chtmpdir(t)
+		defer restore()
+	}
+
+	tmpDir := t.TempDir()
+
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal("finding working dir:", err)
+	}
+	if err = os.Chdir(tmpDir); err != nil {
+		t.Fatal("entering temp dir:", err)
+	}
+	defer os.Chdir(origDir)
+	// -- END -- //
+
+	tree := &Node{
+		"testdata",
+		[]*Node{
+			{
+				"main.go",
+				nil,
+				"main",
+				`
+package main
+
+import "fmt"
+
+func f1() {}
+
+func main() {
+	f1()
+	fmt.Println("Hello world!")
+}
+`,
+			},
+			{
+				"a",
+				[]*Node{
+					{
+						"a.go",
+						nil,
+						"a",
+						`
+package a
+
+import "fmt"
+
+var println = fmt.Println
+
+func init() {
+	println("A hello world!")
+}
+`,
+					},
+				},
+				"",
+				"",
+			},
+		},
+		"",
+		"",
+	}
+
+	makeTree(t, tree)
+
+	testCase := ""
+	dirOut := make(chan string)
+	depVis, nodeOut := internalAST.NewDependencyVisitor()
+
+	expectedNamesInOrder := []string{
+		"fmt.Println",
+		"fmt.Println",
+	}
+	directoryPathsInOrder := []string{}
+	walkTree(
+		tree,
+		tree.name,
+		func(path string, n *Node) {
+			if n.entries == nil {
+				return
+			}
+
+			directoryPathsInOrder = append(directoryPathsInOrder, tmpDir+"/"+path)
+		},
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	go func() {
+		for _, dirPath := range directoryPathsInOrder {
+			dirOut <- dirPath
+		}
+		close(dirOut)
+	}()
+
+	go func() {
+		for {
+			select {
+			case dirPath, ok := <-dirOut:
+				if !ok {
+					depVis.Close()
+					return
+				}
+				fset := token.NewFileSet()
+				pkgs, err := parser.ParseDir(fset, dirPath, nil, 0)
+				if err != nil {
+					cancel()
+					t.Fatalf("%s: %s", testCase, err)
+				}
+
+				for _, pkg := range pkgs {
+					ast.Walk(depVis, pkg)
+				}
+
+			case <-ctx.Done():
+				depVis.Close()
+				return
+			}
+		}
+	}()
+
+	go func() {
+		for {
+			select {
+			case node, ok := <-nodeOut:
+				if !ok {
+					cancel()
+					return
+				}
+				switch node := node.(type) {
+				case *ast.SelectorExpr:
+					x, ok := node.X.(*ast.Ident)
+					if !ok {
+						cancel()
+						t.Errorf("%s: expected selector node to have X", testCase)
+					}
+					actual := x.String() + "." + node.Sel.String()
+
+					if len(expectedNamesInOrder) == 0 {
+						cancel()
+						t.Errorf(
+							"%s: read more functions than expected: %s",
+							testCase,
+							actual,
+						)
+						return
+					}
+					if expectedNamesInOrder[0] != actual {
+						cancel()
+						t.Errorf(
+							"%s: expected function named %s, got %s",
+							testCase,
+							expectedNamesInOrder[0],
+							actual,
+						)
+					}
+					expectedNamesInOrder = expectedNamesInOrder[1:]
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	<-ctx.Done()
+
+	if len(expectedNamesInOrder) != 0 {
+		t.Errorf(
+			"%s: expected function names never received: %s",
+			testCase,
+			strings.Join(expectedNamesInOrder, ", "),
+		)
+	}
+}
+
 // REFURL: https://github.com/golang/go/blob/988b718f4130ab5b3ce5a5774e1a58e83c92a163/src/path/filepath/path_test.go#L449
 type Node struct {
 	name    string

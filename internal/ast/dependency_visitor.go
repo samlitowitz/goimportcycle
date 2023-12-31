@@ -50,6 +50,9 @@ func (v DependencyVisitor) Visit(node ast.Node) ast.Visitor {
 
 	case *ast.FuncDecl:
 		v.out <- node
+
+	case *ast.SelectorExpr:
+		v.out <- node
 	}
 	return v
 }
