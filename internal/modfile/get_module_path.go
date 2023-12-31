@@ -1,12 +1,13 @@
 package modfile
 
 import (
+	"os"
+
 	"golang.org/x/mod/modfile"
-	"io/ioutil"
 )
 
 func GetModulePath(goModFile string) (string, error) {
-	goMod, err := ioutil.ReadFile(goModFile)
+	goMod, err := os.ReadFile(goModFile)
 	if err != nil {
 		return "", err
 	}
