@@ -1,60 +1,20 @@
 package ast_test
 
 import (
-	"fmt"
+	"context"
 	"go/ast"
-	"go/build"
 	"go/parser"
 	"go/token"
-	"log"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	internalAST "github.com/samlitowitz/goimportcycle/internal/ast"
-
-	"github.com/samlitowitz/goimportcycle/internal/directory"
 )
 
-func TestDependencyVisitor_Visit(t *testing.T) {
-	dirEmitter, dirOut := directory.NewEmitter()
-	defer dirEmitter.Close()
-	depVis, depTokenOut := internalAST.NewDependencyVisitor()
-	defer depVis.Close()
-
-	go func(tokenOut <-chan internalAST.Token) {
-		for tok := range tokenOut {
-			fmt.Printf("Token: %d: %s", tok.Type(), tok.Val())
-		}
-	}(depTokenOut)
-
-	go func(dirOut <-chan string, depVis *internalAST.DependencyVisitor) {
-		for dirPath := range dirOut {
-			fset := token.NewFileSet()
-			pkgs, err := parser.ParseDir(fset, dirPath, nil, 0)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			for _, pkg := range pkgs {
-				ast.Walk(depVis, pkg)
-			}
-		}
-	}(dirOut, depVis)
-
-	pkg, err := build.Default.Import("../../", ".", build.FindOnly)
-	if err != nil {
-		t.Fatal(err)
-	}
-	fmt.Printf("%s", pkg.Name)
-	err = filepath.WalkDir("../../examples", dirEmitter.WalkDirFunc)
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestDependencyVisitor_Visit_EmitsPackagesAndFiles_JustMain(t *testing.T) {
+func TestDependencyVisitor_Visit_EmitsPackages(t *testing.T) {
 	// REFURL: https://github.com/golang/go/blob/988b718f4130ab5b3ce5a5774e1a58e83c92a163/src/path/filepath/path_test.go#L600
 	// -- START -- //
 	if runtime.GOOS == "ios" {
@@ -78,18 +38,16 @@ func TestDependencyVisitor_Visit_EmitsPackagesAndFiles_JustMain(t *testing.T) {
 		"testdata",
 		[]*Node{
 			{
-				"just_main",
+				"main",
 				[]*Node{
 					{
-						"just_main.go",
+						"main.go",
 						nil,
-						`
-package main
-
-func main() {}
-`,
+						"main",
+						"",
 					},
 				},
+				"",
 				"",
 			},
 			{
@@ -98,9 +56,8 @@ func main() {}
 					{
 						"no_main.go",
 						nil,
-						`
-package no_main
-`,
+						"no_main",
+						"",
 					},
 					{
 						"a",
@@ -108,9 +65,8 @@ package no_main
 							{
 								"a.go",
 								nil,
-								`
-package a
-`,
+								"a",
+								"",
 							},
 							{
 								"b",
@@ -118,14 +74,15 @@ package a
 									{
 										"b.go",
 										nil,
-										`
-package b
-`,
+										"b",
+										"",
 									},
 								},
 								"",
+								"",
 							},
 						},
+						"",
 						"",
 					},
 					{
@@ -134,14 +91,15 @@ package b
 							{
 								"c.go",
 								nil,
-								`
-package c
-`,
+								"c",
+								"",
 							},
 						},
 						"",
+						"",
 					},
 				},
+				"",
 				"",
 			},
 			{
@@ -150,9 +108,8 @@ package c
 					{
 						"main.go",
 						nil,
-						`
-package main
-`,
+						"main",
+						"",
 					},
 					{
 						"a",
@@ -160,9 +117,8 @@ package main
 							{
 								"a.go",
 								nil,
-								`
-package a
-`,
+								"a",
+								"",
 							},
 							{
 								"b",
@@ -170,14 +126,15 @@ package a
 									{
 										"b.go",
 										nil,
-										`
-package b
-`,
+										"b",
+										"",
 									},
 								},
 								"",
+								"",
 							},
 						},
+						"",
 						"",
 					},
 					{
@@ -186,28 +143,143 @@ package b
 							{
 								"c.go",
 								nil,
-								`
-package c
-`,
+								"c",
+								"",
 							},
 						},
+						"",
 						"",
 					},
 				},
 				"",
+				"",
 			},
 		},
 		"",
+		"",
 	}
 
+	walkTree(
+		tree,
+		tree.name,
+		func(path string, n *Node) {
+			// don't update directories
+			if n.entries != nil {
+				return
+			}
+			// set data for files
+			n.data = "package " + n.pkg + "\n\n"
+		},
+	)
 	makeTree(t, tree)
+
+	for _, node := range tree.entries {
+		testCase := node.name
+		dirOut := make(chan string)
+		depVis, nodeOut := internalAST.NewDependencyVisitor()
+
+		expectedPackageNamesInOrder := []string{}
+		directoryPathsInOrder := []string{}
+		walkTree(
+			node,
+			node.name,
+			func(path string, n *Node) {
+				if n.entries == nil {
+					expectedPackageNamesInOrder = append(expectedPackageNamesInOrder, n.pkg)
+					return
+				}
+
+				directoryPathsInOrder = append(directoryPathsInOrder, tmpDir+"/testdata/"+path)
+			},
+		)
+
+		ctx, cancel := context.WithCancel(context.Background())
+
+		go func() {
+			for _, dirPath := range directoryPathsInOrder {
+				dirOut <- dirPath
+			}
+			close(dirOut)
+		}()
+
+		go func() {
+			for {
+				select {
+				case dirPath, ok := <-dirOut:
+					if !ok {
+						depVis.Close()
+						return
+					}
+					fset := token.NewFileSet()
+					pkgs, err := parser.ParseDir(fset, dirPath, nil, 0)
+					if err != nil {
+						cancel()
+						t.Fatalf("%s: %s", testCase, err)
+					}
+
+					for _, pkg := range pkgs {
+						ast.Walk(depVis, pkg)
+					}
+
+				case <-ctx.Done():
+					depVis.Close()
+					return
+				}
+			}
+		}()
+
+		go func() {
+			for {
+				select {
+				case astNode, ok := <-nodeOut:
+					if !ok {
+						cancel()
+						return
+					}
+					switch astNode := astNode.(type) {
+					case *ast.Package:
+						if len(expectedPackageNamesInOrder) == 0 {
+							cancel()
+							t.Errorf(
+								"%s: read more packages than expected: %s",
+								testCase,
+								astNode.Name,
+							)
+						}
+						if expectedPackageNamesInOrder[0] != astNode.Name {
+							cancel()
+							t.Errorf(
+								"%s: expected package %s, got %s",
+								testCase,
+								expectedPackageNamesInOrder[0],
+								astNode.Name,
+							)
+						}
+						expectedPackageNamesInOrder = expectedPackageNamesInOrder[1:]
+					}
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+		<-ctx.Done()
+
+		if len(expectedPackageNamesInOrder) != 0 {
+			t.Errorf(
+				"%s: expected package names never received: %s",
+				testCase,
+				strings.Join(expectedPackageNamesInOrder, ", "),
+			)
+		}
+	}
 }
 
 // REFURL: https://github.com/golang/go/blob/988b718f4130ab5b3ce5a5774e1a58e83c92a163/src/path/filepath/path_test.go#L449
 type Node struct {
 	name    string
 	entries []*Node // nil if the entry is a file
-	data    string  // nil if entry is a directory
+	pkg     string  // empty if entry is a directory
+	data    string  // empty if entry is a directory
 }
 
 // REFURL: https://github.com/golang/go/blob/988b718f4130ab5b3ce5a5774e1a58e83c92a163/src/path/filepath/path_test.go#L481

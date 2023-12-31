@@ -2,41 +2,18 @@ package ast
 
 import "go/ast"
 
-type tokenType uint
+type File struct {
+	*ast.File
 
-const (
-	TokenError tokenType = iota
-
-	TokenPackage tokenType = iota
-	TokenFile    tokenType = iota
-)
-
-type Token struct {
-	typ tokenType
-	val string
-}
-
-func (t Token) Type() uint {
-	return uint(t.typ)
-}
-
-func (t Token) Val() string {
-	return t.val
-}
-
-func NewToken(typ tokenType, val string) *Token {
-	return &Token{
-		typ: typ,
-		val: val,
-	}
+	Filename string
 }
 
 type DependencyVisitor struct {
-	out chan<- Token
+	out chan<- ast.Node
 }
 
-func NewDependencyVisitor() (*DependencyVisitor, <-chan Token) {
-	out := make(chan Token)
+func NewDependencyVisitor() (*DependencyVisitor, <-chan ast.Node) {
+	out := make(chan ast.Node)
 	v := &DependencyVisitor{
 		out: out,
 	}
@@ -47,9 +24,13 @@ func NewDependencyVisitor() (*DependencyVisitor, <-chan Token) {
 func (v DependencyVisitor) Visit(node ast.Node) ast.Visitor {
 	switch node := node.(type) {
 	case *ast.Package:
-		v.out <- Token{
-			typ: TokenPackage,
-			val: node.Name,
+		v.out <- node
+
+		for filename, astFile := range node.Files {
+			v.out <- &File{
+				File:     astFile,
+				Filename: filename,
+			}
 		}
 	}
 	return v

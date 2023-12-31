@@ -1,4 +1,4 @@
-package ast
+package tmp
 
 type Package struct {
 	Name  string
