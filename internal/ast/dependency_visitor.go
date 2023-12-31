@@ -32,6 +32,8 @@ func (v DependencyVisitor) Visit(node ast.Node) ast.Visitor {
 				Filename: filename,
 			}
 		}
+	case *ast.ImportSpec:
+		v.out <- node
 	}
 	return v
 }

@@ -501,15 +501,15 @@ func TestDependencyVisitor_Visit_EmitsFiles(t *testing.T) {
 						if len(expectedFilenamesInOrder) == 0 {
 							cancel()
 							t.Errorf(
-								"%s: read more packages than expected: %s",
+								"%s: read more files than expected: %s",
 								testCase,
-								node.Name,
+								node.Filename,
 							)
 						}
 						if expectedFilenamesInOrder[0] != node.Filename {
 							cancel()
 							t.Errorf(
-								"%s: expected package %s, got %s",
+								"%s: expected file path %s, got %s",
 								testCase,
 								expectedFilenamesInOrder[0],
 								node.Filename,
@@ -534,12 +534,177 @@ func TestDependencyVisitor_Visit_EmitsFiles(t *testing.T) {
 	}
 }
 
+func TestDependencyVisitor_Visit_EmitsImportSpecs(t *testing.T) {
+	// REFURL: https://github.com/golang/go/blob/988b718f4130ab5b3ce5a5774e1a58e83c92a163/src/path/filepath/path_test.go#L600
+	// -- START -- //
+	if runtime.GOOS == "ios" {
+		restore := chtmpdir(t)
+		defer restore()
+	}
+
+	tmpDir := t.TempDir()
+
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal("finding working dir:", err)
+	}
+	if err = os.Chdir(tmpDir); err != nil {
+		t.Fatal("entering temp dir:", err)
+	}
+	defer os.Chdir(origDir)
+	// -- END -- //
+
+	tree := &Node{
+		"testdata",
+		[]*Node{
+			{
+				"main.go",
+				nil,
+				"main",
+				`
+package main
+
+import (
+	"fmt"
+	aliasFmt "fmt"
+)`,
+			},
+			{
+				"a",
+				[]*Node{
+					{
+						"a.go",
+						nil,
+						"a",
+						`
+package a
+
+type A struct {}
+
+func (a A) Error() string {
+	return "A"
+}
+`,
+					},
+				},
+				"",
+				"",
+			},
+		},
+		"",
+		"",
+	}
+
+	makeTree(t, tree)
+
+	testCase := ""
+	dirOut := make(chan string)
+	depVis, nodeOut := internalAST.NewDependencyVisitor()
+
+	expectedImportPathsInOrder := []string{
+		"\"fmt\"",
+		"\"fmt\"",
+	}
+	directoryPathsInOrder := []string{}
+	walkTree(
+		tree,
+		tree.name,
+		func(path string, n *Node) {
+			if n.entries == nil {
+				//	expectedImportPathsInOrder = append(expectedImportPathsInOrder, tmpDir+"/testdata/"+path)
+				return
+			}
+
+			directoryPathsInOrder = append(directoryPathsInOrder, tmpDir+"/"+path)
+		},
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	go func() {
+		for _, dirPath := range directoryPathsInOrder {
+			dirOut <- dirPath
+		}
+		close(dirOut)
+	}()
+
+	go func() {
+		for {
+			select {
+			case dirPath, ok := <-dirOut:
+				if !ok {
+					depVis.Close()
+					return
+				}
+				fset := token.NewFileSet()
+				pkgs, err := parser.ParseDir(fset, dirPath, nil, 0)
+				if err != nil {
+					cancel()
+					t.Fatalf("%s: %s", testCase, err)
+				}
+
+				for _, pkg := range pkgs {
+					ast.Walk(depVis, pkg)
+				}
+
+			case <-ctx.Done():
+				depVis.Close()
+				return
+			}
+		}
+	}()
+
+	go func() {
+		for {
+			select {
+			case node, ok := <-nodeOut:
+				if !ok {
+					cancel()
+					return
+				}
+				switch node := node.(type) {
+				case *ast.ImportSpec:
+					if len(expectedImportPathsInOrder) == 0 {
+						cancel()
+						t.Errorf(
+							"%s: read more packages than expected: %s",
+							testCase,
+							node.Name.String(),
+						)
+					}
+					if expectedImportPathsInOrder[0] != node.Path.Value {
+						cancel()
+						t.Errorf(
+							"%s: expected import path %s, got %s",
+							testCase,
+							expectedImportPathsInOrder[0],
+							node.Path.Value,
+						)
+					}
+					expectedImportPathsInOrder = expectedImportPathsInOrder[1:]
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	<-ctx.Done()
+
+	if len(expectedImportPathsInOrder) != 0 {
+		t.Errorf(
+			"%s: expected package names never received: %s",
+			testCase,
+			strings.Join(expectedImportPathsInOrder, ", "),
+		)
+	}
+}
+
 // REFURL: https://github.com/golang/go/blob/988b718f4130ab5b3ce5a5774e1a58e83c92a163/src/path/filepath/path_test.go#L449
 type Node struct {
 	name    string
 	entries []*Node // nil if the entry is a file
-	pkg     string  // empty if entry is a directory
-	data    string  // empty if entry is a directory
+	pkg     string  // file package belongs to, empty if entry is a directory
+	data    string  // file content, empty if entry is a directory
 }
 
 // REFURL: https://github.com/golang/go/blob/988b718f4130ab5b3ce5a5774e1a58e83c92a163/src/path/filepath/path_test.go#L481
