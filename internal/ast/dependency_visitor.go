@@ -47,6 +47,9 @@ func (v DependencyVisitor) Visit(node ast.Node) ast.Visitor {
 		case token.VAR:
 			v.out <- node
 		}
+
+	case *ast.FuncDecl:
+		v.out <- node
 	}
 	return v
 }

@@ -929,7 +929,180 @@ type A struct {}
 
 	if len(expectedNamesInOrder) != 0 {
 		t.Errorf(
-			"%s: expected package names never received: %s",
+			"%s: expected names never received: %s",
+			testCase,
+			strings.Join(expectedNamesInOrder, ", "),
+		)
+	}
+}
+
+func TestDependencyVisitor_Visit_EmitsFunctions(t *testing.T) {
+	// REFURL: https://github.com/golang/go/blob/988b718f4130ab5b3ce5a5774e1a58e83c92a163/src/path/filepath/path_test.go#L600
+	// -- START -- //
+	if runtime.GOOS == "ios" {
+		restore := chtmpdir(t)
+		defer restore()
+	}
+
+	tmpDir := t.TempDir()
+
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal("finding working dir:", err)
+	}
+	if err = os.Chdir(tmpDir); err != nil {
+		t.Fatal("entering temp dir:", err)
+	}
+	defer os.Chdir(origDir)
+	// -- END -- //
+
+	tree := &Node{
+		"testdata",
+		[]*Node{
+			{
+				"main.go",
+				nil,
+				"main",
+				`
+package main
+
+type TA struct {}
+
+func (r TA) FTA1() {}
+
+func (r *TA) FTA2() {}
+
+type tc struct{}
+
+func (r tc) FC() {}
+
+func F1() {}
+`,
+			},
+			{
+				"a",
+				[]*Node{
+					{
+						"a.go",
+						nil,
+						"a",
+						`
+package a
+
+type A struct {}
+
+func (a A) FA() {}
+`,
+					},
+				},
+				"",
+				"",
+			},
+		},
+		"",
+		"",
+	}
+
+	makeTree(t, tree)
+
+	testCase := ""
+	dirOut := make(chan string)
+	depVis, nodeOut := internalAST.NewDependencyVisitor()
+
+	expectedNamesInOrder := []string{
+		"FTA1", "FTA2",
+		"FC",
+		"F1",
+		"FA",
+	}
+	directoryPathsInOrder := []string{}
+	walkTree(
+		tree,
+		tree.name,
+		func(path string, n *Node) {
+			if n.entries == nil {
+				return
+			}
+
+			directoryPathsInOrder = append(directoryPathsInOrder, tmpDir+"/"+path)
+		},
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	go func() {
+		for _, dirPath := range directoryPathsInOrder {
+			dirOut <- dirPath
+		}
+		close(dirOut)
+	}()
+
+	go func() {
+		for {
+			select {
+			case dirPath, ok := <-dirOut:
+				if !ok {
+					depVis.Close()
+					return
+				}
+				fset := token.NewFileSet()
+				pkgs, err := parser.ParseDir(fset, dirPath, nil, 0)
+				if err != nil {
+					cancel()
+					t.Fatalf("%s: %s", testCase, err)
+				}
+
+				for _, pkg := range pkgs {
+					ast.Walk(depVis, pkg)
+				}
+
+			case <-ctx.Done():
+				depVis.Close()
+				return
+			}
+		}
+	}()
+
+	go func() {
+		for {
+			select {
+			case node, ok := <-nodeOut:
+				if !ok {
+					cancel()
+					return
+				}
+				switch node := node.(type) {
+				case *ast.FuncDecl:
+					if len(expectedNamesInOrder) == 0 {
+						cancel()
+						t.Errorf(
+							"%s: read more functions than expected: %s",
+							testCase,
+							node.Name.String(),
+						)
+						return
+					}
+					if expectedNamesInOrder[0] != node.Name.String() {
+						cancel()
+						t.Errorf(
+							"%s: expected function named %s, got %s",
+							testCase,
+							expectedNamesInOrder[0],
+							node.Name.String(),
+						)
+					}
+					expectedNamesInOrder = expectedNamesInOrder[1:]
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	<-ctx.Done()
+
+	if len(expectedNamesInOrder) != 0 {
+		t.Errorf(
+			"%s: expected function names never received: %s",
 			testCase,
 			strings.Join(expectedNamesInOrder, ", "),
 		)
