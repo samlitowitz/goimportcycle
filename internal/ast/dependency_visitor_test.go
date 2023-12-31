@@ -611,7 +611,6 @@ func (a A) Error() string {
 		tree.name,
 		func(path string, n *Node) {
 			if n.entries == nil {
-				//	expectedImportPathsInOrder = append(expectedImportPathsInOrder, tmpDir+"/testdata/"+path)
 				return
 			}
 
@@ -667,7 +666,7 @@ func (a A) Error() string {
 					if len(expectedImportPathsInOrder) == 0 {
 						cancel()
 						t.Errorf(
-							"%s: read more packages than expected: %s",
+							"%s: read more import paths than expected: %s",
 							testCase,
 							node.Name.String(),
 						)
@@ -695,6 +694,244 @@ func (a A) Error() string {
 			"%s: expected package names never received: %s",
 			testCase,
 			strings.Join(expectedImportPathsInOrder, ", "),
+		)
+	}
+}
+
+func TestDependencyVisitor_Visit_EmitsConstantsTypesAndVars(t *testing.T) {
+	// REFURL: https://github.com/golang/go/blob/988b718f4130ab5b3ce5a5774e1a58e83c92a163/src/path/filepath/path_test.go#L600
+	// -- START -- //
+	if runtime.GOOS == "ios" {
+		restore := chtmpdir(t)
+		defer restore()
+	}
+
+	tmpDir := t.TempDir()
+
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal("finding working dir:", err)
+	}
+	if err = os.Chdir(tmpDir); err != nil {
+		t.Fatal("entering temp dir:", err)
+	}
+	defer os.Chdir(origDir)
+	// -- END -- //
+
+	tree := &Node{
+		"testdata",
+		[]*Node{
+			{
+				"main.go",
+				nil,
+				"main",
+				`
+package main
+
+const CA = 1
+const CB = 2
+const (
+	CC = 3
+	CD = 4
+)
+const ce = 5
+
+var VA = 1
+var VB = 2
+var (
+	VC = 3
+	VD = 4
+)
+var ve = 5
+
+type TA struct {}
+type TB struct {}
+type tc struct{}
+`,
+			},
+			{
+				"a",
+				[]*Node{
+					{
+						"a.go",
+						nil,
+						"a",
+						`
+package a
+
+type A struct {}
+`,
+					},
+				},
+				"",
+				"",
+			},
+		},
+		"",
+		"",
+	}
+
+	makeTree(t, tree)
+
+	testCase := ""
+	dirOut := make(chan string)
+	depVis, nodeOut := internalAST.NewDependencyVisitor()
+
+	expectedNamesInOrder := []string{
+		"CA", "CB", "CC", "CD", "ce",
+		"VA", "VB", "VC", "VD", "ve",
+		"TA", "TB", "tc",
+		"A",
+	}
+	directoryPathsInOrder := []string{}
+	walkTree(
+		tree,
+		tree.name,
+		func(path string, n *Node) {
+			if n.entries == nil {
+				return
+			}
+
+			directoryPathsInOrder = append(directoryPathsInOrder, tmpDir+"/"+path)
+		},
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	go func() {
+		for _, dirPath := range directoryPathsInOrder {
+			dirOut <- dirPath
+		}
+		close(dirOut)
+	}()
+
+	go func() {
+		for {
+			select {
+			case dirPath, ok := <-dirOut:
+				if !ok {
+					depVis.Close()
+					return
+				}
+				fset := token.NewFileSet()
+				pkgs, err := parser.ParseDir(fset, dirPath, nil, 0)
+				if err != nil {
+					cancel()
+					t.Fatalf("%s: %s", testCase, err)
+				}
+
+				for _, pkg := range pkgs {
+					ast.Walk(depVis, pkg)
+				}
+
+			case <-ctx.Done():
+				depVis.Close()
+				return
+			}
+		}
+	}()
+
+	go func() {
+		for {
+			select {
+			case node, ok := <-nodeOut:
+				if !ok {
+					cancel()
+					return
+				}
+				switch node := node.(type) {
+				case *ast.GenDecl:
+					for _, spec := range node.Specs {
+						switch node.Tok {
+						case token.CONST:
+							spec, ok := spec.(*ast.ValueSpec)
+							if !ok {
+								continue
+							}
+							for _, ident := range spec.Names {
+								if len(expectedNamesInOrder) == 0 {
+									cancel()
+									t.Errorf(
+										"%s: read more general declarations than expected: %s",
+										testCase,
+										ident.String(),
+									)
+									return
+								}
+								if expectedNamesInOrder[0] != ident.String() {
+									cancel()
+									t.Errorf(
+										"%s: expected const %s, got %s",
+										testCase,
+										expectedNamesInOrder[0],
+										ident.String(),
+									)
+								}
+							}
+						case token.TYPE:
+							spec, ok := spec.(*ast.TypeSpec)
+							if !ok {
+								continue
+							}
+							if len(expectedNamesInOrder) == 0 {
+								cancel()
+								t.Errorf(
+									"%s: read more general declarations than expected: %s",
+									testCase,
+									spec.Name.String(),
+								)
+								return
+							}
+							if expectedNamesInOrder[0] != spec.Name.String() {
+								cancel()
+								t.Errorf(
+									"%s: expected type %s, got %s",
+									testCase,
+									expectedNamesInOrder[0],
+									spec.Name.String(),
+								)
+							}
+						case token.VAR:
+							spec, ok := spec.(*ast.ValueSpec)
+							if !ok {
+								continue
+							}
+							for _, ident := range spec.Names {
+								if len(expectedNamesInOrder) == 0 {
+									cancel()
+									t.Errorf(
+										"%s: read more general declarations than expected: %s",
+										testCase,
+										ident.String(),
+									)
+									return
+								}
+								if expectedNamesInOrder[0] != ident.String() {
+									cancel()
+									t.Errorf(
+										"%s: expected const %s, got %s",
+										testCase,
+										expectedNamesInOrder[0],
+										ident.String(),
+									)
+								}
+							}
+						}
+						expectedNamesInOrder = expectedNamesInOrder[1:]
+					}
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	<-ctx.Done()
+
+	if len(expectedNamesInOrder) != 0 {
+		t.Errorf(
+			"%s: expected package names never received: %s",
+			testCase,
+			strings.Join(expectedNamesInOrder, ", "),
 		)
 	}
 }

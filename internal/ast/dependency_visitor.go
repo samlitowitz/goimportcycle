@@ -1,6 +1,9 @@
 package ast
 
-import "go/ast"
+import (
+	"go/ast"
+	"go/token"
+)
 
 type File struct {
 	*ast.File
@@ -34,6 +37,16 @@ func (v DependencyVisitor) Visit(node ast.Node) ast.Visitor {
 		}
 	case *ast.ImportSpec:
 		v.out <- node
+
+	case *ast.GenDecl:
+		switch node.Tok {
+		case token.CONST:
+			fallthrough
+		case token.TYPE:
+			fallthrough
+		case token.VAR:
+			v.out <- node
+		}
 	}
 	return v
 }
