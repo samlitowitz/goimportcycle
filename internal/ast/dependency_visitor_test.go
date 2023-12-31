@@ -173,16 +173,16 @@ func TestDependencyVisitor_Visit_EmitsPackages(t *testing.T) {
 	)
 	makeTree(t, tree)
 
-	for _, node := range tree.entries {
-		testCase := node.name
+	for _, treeNode := range tree.entries {
+		testCase := treeNode.name
 		dirOut := make(chan string)
 		depVis, nodeOut := internalAST.NewDependencyVisitor()
 
 		expectedPackageNamesInOrder := []string{}
 		directoryPathsInOrder := []string{}
 		walkTree(
-			node,
-			node.name,
+			treeNode,
+			treeNode.name,
 			func(path string, n *Node) {
 				if n.entries == nil {
 					expectedPackageNamesInOrder = append(expectedPackageNamesInOrder, n.pkg)
@@ -269,6 +269,266 @@ func TestDependencyVisitor_Visit_EmitsPackages(t *testing.T) {
 				"%s: expected package names never received: %s",
 				testCase,
 				strings.Join(expectedPackageNamesInOrder, ", "),
+			)
+		}
+	}
+}
+
+func TestDependencyVisitor_Visit_EmitsFiles(t *testing.T) {
+	// REFURL: https://github.com/golang/go/blob/988b718f4130ab5b3ce5a5774e1a58e83c92a163/src/path/filepath/path_test.go#L600
+	// -- START -- //
+	if runtime.GOOS == "ios" {
+		restore := chtmpdir(t)
+		defer restore()
+	}
+
+	tmpDir := t.TempDir()
+
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal("finding working dir:", err)
+	}
+	if err = os.Chdir(tmpDir); err != nil {
+		t.Fatal("entering temp dir:", err)
+	}
+	defer os.Chdir(origDir)
+	// -- END -- //
+
+	tree := &Node{
+		"testdata",
+		[]*Node{
+			{
+				"main",
+				[]*Node{
+					{
+						"main.go",
+						nil,
+						"main",
+						"",
+					},
+				},
+				"",
+				"",
+			},
+			{
+				"no_main",
+				[]*Node{
+					{
+						"no_main.go",
+						nil,
+						"no_main",
+						"",
+					},
+					{
+						"a",
+						[]*Node{
+							{
+								"a.go",
+								nil,
+								"a",
+								"",
+							},
+							{
+								"b",
+								[]*Node{
+									{
+										"b.go",
+										nil,
+										"b",
+										"",
+									},
+								},
+								"",
+								"",
+							},
+						},
+						"",
+						"",
+					},
+					{
+						"c",
+						[]*Node{
+							{
+								"c.go",
+								nil,
+								"c",
+								"",
+							},
+						},
+						"",
+						"",
+					},
+				},
+				"",
+				"",
+			},
+			{
+				"both",
+				[]*Node{
+					{
+						"main.go",
+						nil,
+						"main",
+						"",
+					},
+					{
+						"a",
+						[]*Node{
+							{
+								"a.go",
+								nil,
+								"a",
+								"",
+							},
+							{
+								"b",
+								[]*Node{
+									{
+										"b.go",
+										nil,
+										"b",
+										"",
+									},
+								},
+								"",
+								"",
+							},
+						},
+						"",
+						"",
+					},
+					{
+						"c",
+						[]*Node{
+							{
+								"c.go",
+								nil,
+								"c",
+								"",
+							},
+						},
+						"",
+						"",
+					},
+				},
+				"",
+				"",
+			},
+		},
+		"",
+		"",
+	}
+
+	walkTree(
+		tree,
+		tree.name,
+		func(path string, n *Node) {
+			// don't update directories
+			if n.entries != nil {
+				return
+			}
+			// set data for files
+			n.data = "package " + n.pkg + "\n\n"
+		},
+	)
+	makeTree(t, tree)
+
+	for _, treeNode := range tree.entries {
+		testCase := treeNode.name
+		dirOut := make(chan string)
+		depVis, nodeOut := internalAST.NewDependencyVisitor()
+
+		expectedFilenamesInOrder := []string{}
+		directoryPathsInOrder := []string{}
+		walkTree(
+			treeNode,
+			treeNode.name,
+			func(path string, n *Node) {
+				if n.entries == nil {
+					expectedFilenamesInOrder = append(expectedFilenamesInOrder, tmpDir+"/testdata/"+path)
+					return
+				}
+
+				directoryPathsInOrder = append(directoryPathsInOrder, tmpDir+"/testdata/"+path)
+			},
+		)
+
+		ctx, cancel := context.WithCancel(context.Background())
+
+		go func() {
+			for _, dirPath := range directoryPathsInOrder {
+				dirOut <- dirPath
+			}
+			close(dirOut)
+		}()
+
+		go func() {
+			for {
+				select {
+				case dirPath, ok := <-dirOut:
+					if !ok {
+						depVis.Close()
+						return
+					}
+					fset := token.NewFileSet()
+					pkgs, err := parser.ParseDir(fset, dirPath, nil, 0)
+					if err != nil {
+						cancel()
+						t.Fatalf("%s: %s", testCase, err)
+					}
+
+					for _, pkg := range pkgs {
+						ast.Walk(depVis, pkg)
+					}
+
+				case <-ctx.Done():
+					depVis.Close()
+					return
+				}
+			}
+		}()
+
+		go func() {
+			for {
+				select {
+				case node, ok := <-nodeOut:
+					if !ok {
+						cancel()
+						return
+					}
+					switch node := node.(type) {
+					case *internalAST.File:
+						if len(expectedFilenamesInOrder) == 0 {
+							cancel()
+							t.Errorf(
+								"%s: read more packages than expected: %s",
+								testCase,
+								node.Name,
+							)
+						}
+						if expectedFilenamesInOrder[0] != node.Filename {
+							cancel()
+							t.Errorf(
+								"%s: expected package %s, got %s",
+								testCase,
+								expectedFilenamesInOrder[0],
+								node.Filename,
+							)
+						}
+						expectedFilenamesInOrder = expectedFilenamesInOrder[1:]
+					}
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+		<-ctx.Done()
+
+		if len(expectedFilenamesInOrder) != 0 {
+			t.Errorf(
+				"%s: expected package names never received: %s",
+				testCase,
+				strings.Join(expectedFilenamesInOrder, ", "),
 			)
 		}
 	}
