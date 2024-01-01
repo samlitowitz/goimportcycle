@@ -189,7 +189,10 @@ func TestDependencyVisitor_Visit_EmitsPackages(t *testing.T) {
 					return
 				}
 
-				directoryPathsInOrder = append(directoryPathsInOrder, tmpDir+"/testdata/"+path)
+				directoryPathsInOrder = append(
+					directoryPathsInOrder,
+					tmpDir+string(filepath.Separator)+"testdata"+string(filepath.Separator)+path,
+				)
 			},
 		)
 
@@ -445,11 +448,17 @@ func TestDependencyVisitor_Visit_EmitsFiles(t *testing.T) {
 			treeNode.name,
 			func(path string, n *Node) {
 				if n.entries == nil {
-					expectedFilenamesInOrder = append(expectedFilenamesInOrder, tmpDir+"/testdata/"+path)
+					expectedFilenamesInOrder = append(
+						expectedFilenamesInOrder,
+						tmpDir+string(filepath.Separator)+"testdata"+string(filepath.Separator)+path,
+					)
 					return
 				}
 
-				directoryPathsInOrder = append(directoryPathsInOrder, tmpDir+"/testdata/"+path)
+				directoryPathsInOrder = append(
+					directoryPathsInOrder,
+					tmpDir+string(filepath.Separator)+"testdata"+string(filepath.Separator)+path,
+				)
 			},
 		)
 
@@ -614,7 +623,7 @@ func (a A) Error() string {
 				return
 			}
 
-			directoryPathsInOrder = append(directoryPathsInOrder, tmpDir+"/"+path)
+			directoryPathsInOrder = append(directoryPathsInOrder, tmpDir+string(filepath.Separator)+path)
 		},
 	)
 
@@ -792,7 +801,7 @@ type A struct {}
 				return
 			}
 
-			directoryPathsInOrder = append(directoryPathsInOrder, tmpDir+"/"+path)
+			directoryPathsInOrder = append(directoryPathsInOrder, tmpDir+string(filepath.Separator)+path)
 		},
 	)
 
@@ -1024,7 +1033,7 @@ func (a A) FA() {}
 				return
 			}
 
-			directoryPathsInOrder = append(directoryPathsInOrder, tmpDir+"/"+path)
+			directoryPathsInOrder = append(directoryPathsInOrder, tmpDir+string(filepath.Separator)+path)
 		},
 	)
 
@@ -1196,7 +1205,7 @@ func init() {
 				return
 			}
 
-			directoryPathsInOrder = append(directoryPathsInOrder, tmpDir+"/"+path)
+			directoryPathsInOrder = append(directoryPathsInOrder, tmpDir+string(filepath.Separator)+path)
 		},
 	)
 
