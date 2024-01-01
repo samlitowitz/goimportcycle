@@ -237,7 +237,7 @@ func TestDependencyVisitor_Visit_EmitsPackages(t *testing.T) {
 						return
 					}
 					switch astNode := astNode.(type) {
-					case *ast.Package:
+					case *internalAST.Package:
 						if len(expectedPackageNamesInOrder) == 0 {
 							cancel()
 							t.Errorf(
@@ -503,16 +503,16 @@ func TestDependencyVisitor_Visit_EmitsFiles(t *testing.T) {
 							t.Errorf(
 								"%s: read more files than expected: %s",
 								testCase,
-								node.Filename,
+								node.AbsPath,
 							)
 						}
-						if expectedFilenamesInOrder[0] != node.Filename {
+						if expectedFilenamesInOrder[0] != node.AbsPath {
 							cancel()
 							t.Errorf(
 								"%s: expected file path %s, got %s",
 								testCase,
 								expectedFilenamesInOrder[0],
-								node.Filename,
+								node.AbsPath,
 							)
 						}
 						expectedFilenamesInOrder = expectedFilenamesInOrder[1:]

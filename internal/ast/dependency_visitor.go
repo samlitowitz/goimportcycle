@@ -3,12 +3,20 @@ package ast
 import (
 	"go/ast"
 	"go/token"
+	"path/filepath"
+	"strings"
 )
+
+type Package struct {
+	*ast.Package
+
+	DirName string
+}
 
 type File struct {
 	*ast.File
 
-	Filename string
+	AbsPath string
 }
 
 type DependencyVisitor struct {
@@ -27,12 +35,25 @@ func NewDependencyVisitor() (*DependencyVisitor, <-chan ast.Node) {
 func (v DependencyVisitor) Visit(node ast.Node) ast.Visitor {
 	switch node := node.(type) {
 	case *ast.Package:
-		v.out <- node
-
+		var setImportPathAndEmitPackage bool
 		for filename, astFile := range node.Files {
+			absPath, err := filepath.Abs(filename)
+			if err != nil {
+				continue
+			}
+			if !setImportPathAndEmitPackage {
+				dirName, _ := filepath.Split(absPath)
+				dirName = strings.TrimRight(dirName, "/")
+				v.out <- &Package{
+					Package: node,
+					DirName: dirName,
+				}
+				setImportPathAndEmitPackage = true
+			}
+
 			v.out <- &File{
-				File:     astFile,
-				Filename: filename,
+				File:    astFile,
+				AbsPath: absPath,
 			}
 		}
 	case *ast.ImportSpec:
