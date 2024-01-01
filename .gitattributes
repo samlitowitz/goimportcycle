@@ -1,0 +1,13 @@
+*.go -text diff=golang eol=lf
+
+
+
+.gitattributes  export-ignore
+.gitignore      export-ignore
+.gitkeep        export-ignore
+
+Makefile        export-ignore
+
+assets          export-ignore
+examples        export-ignore
+scripts         export-ignore
