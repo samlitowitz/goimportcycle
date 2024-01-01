@@ -27,19 +27,22 @@ func NewPrimitiveBuilder(modulePath, moduleRootDirectory string) *PrimitiveBuild
 func (builder *PrimitiveBuilder) AddNode(node ast.Node) error {
 	switch node := node.(type) {
 	case *Package:
-		pkg := &internal.Package{
-			DirName:    node.DirName,
-			ImportPath: "",
-			Name:       node.Name,
-			Files:      make(map[string]*internal.File, len(node.Files)),
-		}
-		if pkg.Name != "main" {
-			pkg.ImportPath = strings.TrimPrefix(
-				node.DirName,
-				builder.moduleRootDirectory+string(filepath.Separator),
-			)
-		}
-		builder.packagesByDirName[node.DirName] = pkg
+		builder.packagesByDirName[node.DirName] = buildPackage(
+			builder.moduleRootDirectory,
+			node.DirName,
+			node.Name,
+			len(node.Files),
+		)
+
+		//case *File:
+		//
+		//	file := &internal.File{
+		//		Package:      nil,
+		//		FileName:     "",
+		//		AbsPath:      "",
+		//		Imports:      nil,
+		//		TypesDefined: nil,
+		//	}
 	}
 
 	return nil
@@ -51,4 +54,24 @@ func (builder PrimitiveBuilder) Packages() []*internal.Package {
 		pkgs = append(pkgs, pkg)
 	}
 	return pkgs
+}
+
+func buildPackage(
+	moduleRootDir,
+	dirName, name string,
+	fileCount int,
+) *internal.Package {
+	pkg := &internal.Package{
+		DirName:    dirName,
+		ImportPath: "",
+		Name:       name,
+		Files:      make(map[string]*internal.File, fileCount),
+	}
+	if pkg.Name != "main" {
+		pkg.ImportPath = strings.TrimPrefix(
+			pkg.DirName,
+			moduleRootDir+string(filepath.Separator),
+		)
+	}
+	return pkg
 }
