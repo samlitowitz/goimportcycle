@@ -17,6 +17,7 @@ type File struct {
 	*ast.File
 
 	AbsPath string
+	DirName string
 }
 
 type DependencyVisitor struct {
@@ -32,17 +33,18 @@ func NewDependencyVisitor() (*DependencyVisitor, <-chan ast.Node) {
 	return v, out
 }
 
-func (v DependencyVisitor) Visit(node ast.Node) ast.Visitor {
+func (v *DependencyVisitor) Visit(node ast.Node) ast.Visitor {
 	switch node := node.(type) {
 	case *ast.Package:
 		var setImportPathAndEmitPackage bool
+		var dirName string
 		for filename, astFile := range node.Files {
 			absPath, err := filepath.Abs(filename)
 			if err != nil {
 				continue
 			}
 			if !setImportPathAndEmitPackage {
-				dirName, _ := filepath.Split(absPath)
+				dirName, _ = filepath.Split(absPath)
 				dirName = strings.TrimRight(dirName, "/")
 				v.out <- &Package{
 					Package: node,
@@ -54,6 +56,7 @@ func (v DependencyVisitor) Visit(node ast.Node) ast.Visitor {
 			v.out <- &File{
 				File:    astFile,
 				AbsPath: absPath,
+				DirName: dirName,
 			}
 		}
 	case *ast.ImportSpec:
