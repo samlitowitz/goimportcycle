@@ -44,8 +44,10 @@ type Type struct {
 
 type Import struct {
 	Package *Package
+	File    *File
 
-	Alias string
+	Name string
+	Path string
 
 	ReferencedTypes map[string]*Type
 }

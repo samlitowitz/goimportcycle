@@ -611,8 +611,8 @@ func (a A) Error() string {
 	depVis, nodeOut := internalAST.NewDependencyVisitor()
 
 	expectedImportPathsInOrder := []string{
-		"\"fmt\"",
-		"\"fmt\"",
+		"fmt",
+		"fmt",
 	}
 	directoryPathsInOrder := []string{}
 	walkTree(

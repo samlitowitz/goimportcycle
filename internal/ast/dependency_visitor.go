@@ -60,6 +60,14 @@ func (v *DependencyVisitor) Visit(node ast.Node) ast.Visitor {
 			}
 		}
 	case *ast.ImportSpec:
+		node.Path.Value = strings.Trim(node.Path.Value, "\"")
+		if node.Name == nil {
+			pieces := strings.Split(node.Path.Value, "/")
+			node.Name = &ast.Ident{
+				Name: pieces[len(pieces)-1],
+			}
+		}
+
 		v.out <- node
 
 	case *ast.GenDecl:

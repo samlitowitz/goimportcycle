@@ -57,6 +57,24 @@ func (builder *PrimitiveBuilder) AddNode(node ast.Node) error {
 		}
 		builder.packagesByDirName[node.DirName].Files[node.AbsPath] = builder.filesByAbsPath[node.AbsPath]
 		builder.curFile = builder.filesByAbsPath[node.AbsPath]
+
+	case *ast.ImportSpec:
+		if builder.curPkg == nil {
+			// return custom error, undefined package
+		}
+		if builder.curFile == nil {
+			// return custom error, undefined file
+		}
+
+		if _, ok := builder.curFile.Imports[node.Name.String()]; !ok {
+			builder.curFile.Imports[node.Name.String()] = &internal.Import{
+				Package:         builder.curPkg,
+				File:            builder.curFile,
+				Name:            node.Name.String(),
+				Path:            node.Path.Value,
+				ReferencedTypes: make(map[string]*internal.Type),
+			}
+		}
 	}
 
 	return nil
