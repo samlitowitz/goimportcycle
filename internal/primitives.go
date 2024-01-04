@@ -15,8 +15,8 @@ type File struct {
 	FileName string
 	AbsPath  string
 
-	Imports      map[string]*Import
-	TypesDefined map[string]*Type
+	Imports map[string]*Import
+	Decls   map[string]*Decl
 }
 
 func (f File) ReferencedFiles() []*File {
@@ -36,8 +36,9 @@ func (f File) ReferencedFiles() []*File {
 
 }
 
-type Type struct {
-	File *File
+type Decl struct {
+	File         *File
+	ReceiverDecl *Decl
 
 	Name string
 }
@@ -49,5 +50,5 @@ type Import struct {
 	Name string
 	Path string
 
-	ReferencedTypes map[string]*Type
+	ReferencedTypes map[string]*Decl
 }
