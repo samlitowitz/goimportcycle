@@ -1081,7 +1081,7 @@ func (a A) FA() {}
 					return
 				}
 				switch node := node.(type) {
-				case *ast.FuncDecl:
+				case *internalAST.FuncDecl:
 					if len(expectedNamesInOrder) == 0 {
 						cancel()
 						t.Errorf(

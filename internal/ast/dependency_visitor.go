@@ -20,6 +20,17 @@ type File struct {
 	DirName string
 }
 
+type FuncDecl struct {
+	*ast.FuncDecl
+
+	ReceiverName  string
+	QualifiedName string
+}
+
+func (decl FuncDecl) IsReceiver() bool {
+	return decl.Recv != nil
+}
+
 type DependencyVisitor struct {
 	out chan<- ast.Node
 }
@@ -81,7 +92,35 @@ func (v *DependencyVisitor) Visit(node ast.Node) ast.Visitor {
 		}
 
 	case *ast.FuncDecl:
-		v.out <- node
+		receiverName := ""
+		qualifiedName := node.Name.String()
+
+		if node.Recv != nil {
+			var typName string
+			switch expr := node.Recv.List[0].Type.(type) {
+			case *ast.Ident:
+				typName = expr.String()
+			case *ast.StarExpr:
+				if expr.X == nil {
+					// panic error, invalid receiver method
+				}
+				ident, ok := expr.X.(*ast.Ident)
+				if !ok {
+					// panic error, invalid receiver method
+				}
+				typName = ident.String()
+			default:
+				// panic error, invalid receiver method
+			}
+			receiverName = typName
+			qualifiedName = typName + "." + node.Name.String()
+		}
+
+		v.out <- &FuncDecl{
+			FuncDecl:      node,
+			ReceiverName:  receiverName,
+			QualifiedName: qualifiedName,
+		}
 
 	case *ast.SelectorExpr:
 		v.out <- node
