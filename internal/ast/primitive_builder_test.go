@@ -464,11 +464,11 @@ func TestPrimitiveBuilder_AddNode_Files(t *testing.T) {
 			func(path string, n *Node) {
 				if n.entries == nil {
 					file := &internal.File{
-						Package:      nil,
-						FileName:     n.name,
-						AbsPath:      tmpDir + string(filepath.Separator) + "testdata" + string(filepath.Separator) + path,
-						Imports:      nil,
-						TypesDefined: nil,
+						Package:  nil,
+						FileName: n.name,
+						AbsPath:  tmpDir + string(filepath.Separator) + "testdata" + string(filepath.Separator) + path,
+						Imports:  nil,
+						Decls:    nil,
 					}
 					expectedFilesByDirName[file.AbsPath] = file
 					return
@@ -908,7 +908,6 @@ func init() {
 }
 
 func TestPrimitiveBuilder_AddNode_FunctionDeclarations(t *testing.T) {
-	t.Fatal("NOT IMPLEMENTED")
 	// REFURL: https://github.com/golang/go/blob/988b718f4130ab5b3ce5a5774e1a58e83c92a163/src/path/filepath/path_test.go#L600
 	// -- START -- //
 	if runtime.GOOS == "ios" {
@@ -1063,6 +1062,16 @@ func TestPrimitiveBuilder_AddNode_FunctionDeclarations(t *testing.T) {
 			}
 			// set data for files
 			n.data = "package " + n.pkg + "\n\n"
+
+			n.data = fmt.Sprintf(
+				`
+package %s
+
+func %sFn() { }
+`,
+				n.pkg,
+				n.pkg,
+			)
 		},
 	)
 	makeTree(t, tree)
@@ -1073,21 +1082,21 @@ func TestPrimitiveBuilder_AddNode_FunctionDeclarations(t *testing.T) {
 		depVis, nodeOut := internalAST.NewDependencyVisitor()
 		builder := internalAST.NewPrimitiveBuilder("", tmpDir)
 
-		expectedFilesByDirName := make(map[string]*internal.File, 0)
+		expectedFuncsByFileName := make(map[string]map[string]*internal.Decl, 0)
 		directoryPathsInOrder := []string{}
 		walkTree(
 			treeNode,
 			treeNode.name,
 			func(path string, n *Node) {
 				if n.entries == nil {
-					file := &internal.File{
-						Package:      nil,
-						FileName:     n.name,
-						AbsPath:      tmpDir + string(filepath.Separator) + "testdata" + string(filepath.Separator) + path,
-						Imports:      nil,
-						TypesDefined: nil,
+					if _, ok := expectedFuncsByFileName[n.name]; !ok {
+						expectedFuncsByFileName[n.name] = make(map[string]*internal.Decl, 1)
 					}
-					expectedFilesByDirName[file.AbsPath] = file
+					decl := &internal.Decl{
+						File: nil,
+						Name: n.pkg + "Fn",
+					}
+					expectedFuncsByFileName[n.name][decl.Name] = decl
 					return
 				}
 				directoryPathsInOrder = append(
@@ -1154,6 +1163,13 @@ func TestPrimitiveBuilder_AddNode_FunctionDeclarations(t *testing.T) {
 							cancel()
 							t.Error(err)
 						}
+
+					case *internalAST.FuncDecl:
+						err = builder.AddNode(astNode)
+						if err != nil {
+							cancel()
+							t.Error(err)
+						}
 					}
 				case <-ctx.Done():
 					return
@@ -1163,24 +1179,46 @@ func TestPrimitiveBuilder_AddNode_FunctionDeclarations(t *testing.T) {
 		<-ctx.Done()
 
 		for _, file := range builder.Files() {
-			if _, ok := expectedFilesByDirName[file.AbsPath]; !ok {
+			if _, ok := expectedFuncsByFileName[file.FileName]; !ok {
 				t.Errorf(
 					"%s: unexpected file: %s \"%s\"",
 					testCase,
 					file.FileName,
 					file.AbsPath,
 				)
+				continue
 			}
-			delete(expectedFilesByDirName, file.AbsPath)
+			for _, decl := range file.Decls {
+				if _, ok := expectedFuncsByFileName[file.FileName][decl.Name]; !ok {
+					t.Errorf(
+						"%s: unexpected decl: %s in %s",
+						testCase,
+						decl.Name,
+						file.FileName,
+					)
+					continue
+				}
+				delete(expectedFuncsByFileName[file.FileName], decl.Name)
+			}
+			if len(expectedFuncsByFileName[file.FileName]) != 0 {
+				for _, decl := range expectedFuncsByFileName[file.FileName] {
+					t.Errorf(
+						"%s: missing expected decls: %s in %s",
+						testCase,
+						decl.Name,
+						file.FileName,
+					)
+				}
+			}
+			delete(expectedFuncsByFileName, file.FileName)
 		}
 
-		if len(expectedFilesByDirName) != 0 {
-			for _, file := range expectedFilesByDirName {
+		if len(expectedFuncsByFileName) != 0 {
+			for fileName := range expectedFuncsByFileName {
 				t.Errorf(
-					"%s: missing expected file: %s \"%s\"",
+					"%s: missing expected file: %s",
 					testCase,
-					file.FileName,
-					file.AbsPath,
+					fileName,
 				)
 			}
 		}
@@ -1361,11 +1399,11 @@ func TestPrimitiveBuilder_AddNode_SelectionExpressions(t *testing.T) {
 			func(path string, n *Node) {
 				if n.entries == nil {
 					file := &internal.File{
-						Package:      nil,
-						FileName:     n.name,
-						AbsPath:      tmpDir + string(filepath.Separator) + "testdata" + string(filepath.Separator) + path,
-						Imports:      nil,
-						TypesDefined: nil,
+						Package:  nil,
+						FileName: n.name,
+						AbsPath:  tmpDir + string(filepath.Separator) + "testdata" + string(filepath.Separator) + path,
+						Imports:  nil,
+						Decls:    nil,
 					}
 					expectedFilesByDirName[file.AbsPath] = file
 					return

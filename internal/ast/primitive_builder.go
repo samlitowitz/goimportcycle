@@ -46,14 +46,15 @@ func (builder *PrimitiveBuilder) AddNode(node ast.Node) error {
 		if builder.curPkg == nil {
 			// return custom error, undefined package
 		}
-		if _, ok := builder.filesByAbsPath[node.AbsPath]; !ok {
-			builder.filesByAbsPath[node.AbsPath] = &internal.File{
-				Package:      builder.packagesByDirName[node.DirName],
-				FileName:     filepath.Base(node.AbsPath),
-				AbsPath:      node.AbsPath,
-				Imports:      make(map[string]*internal.Import),
-				TypesDefined: make(map[string]*internal.Type),
-			}
+		if _, ok := builder.filesByAbsPath[node.AbsPath]; ok {
+			// return custom error, duplicate file
+		}
+		builder.filesByAbsPath[node.AbsPath] = &internal.File{
+			Package:  builder.packagesByDirName[node.DirName],
+			FileName: filepath.Base(node.AbsPath),
+			AbsPath:  node.AbsPath,
+			Imports:  make(map[string]*internal.Import),
+			Decls:    make(map[string]*internal.Decl),
 		}
 		builder.packagesByDirName[node.DirName].Files[node.AbsPath] = builder.filesByAbsPath[node.AbsPath]
 		builder.curFile = builder.filesByAbsPath[node.AbsPath]
@@ -65,15 +66,38 @@ func (builder *PrimitiveBuilder) AddNode(node ast.Node) error {
 		if builder.curFile == nil {
 			// return custom error, undefined file
 		}
+		if _, ok := builder.curFile.Imports[node.Name.String()]; ok {
+			// return custom error, duplicate import
+		}
+		builder.curFile.Imports[node.Name.String()] = &internal.Import{
+			Package:         builder.curPkg,
+			File:            builder.curFile,
+			Name:            node.Name.String(),
+			Path:            node.Path.Value,
+			ReferencedTypes: make(map[string]*internal.Decl),
+		}
 
-		if _, ok := builder.curFile.Imports[node.Name.String()]; !ok {
-			builder.curFile.Imports[node.Name.String()] = &internal.Import{
-				Package:         builder.curPkg,
-				File:            builder.curFile,
-				Name:            node.Name.String(),
-				Path:            node.Path.Value,
-				ReferencedTypes: make(map[string]*internal.Type),
+	case *FuncDecl:
+		if builder.curPkg == nil {
+			// return custom error, undefined package
+		}
+		if builder.curFile == nil {
+			// return custom error, undefined file
+		}
+		if _, ok := builder.curFile.Decls[node.QualifiedName]; ok {
+			// return custom error, duplicate decl
+		}
+		var receiverDecl *internal.Decl
+		for _, file := range builder.curPkg.Files {
+			if _, ok := file.Decls[node.ReceiverName]; ok {
+				receiverDecl = file.Decls[node.ReceiverName]
+				break
 			}
+		}
+		builder.curFile.Decls[node.QualifiedName] = &internal.Decl{
+			File:         builder.curFile,
+			ReceiverDecl: receiverDecl,
+			Name:         node.Name.String(),
 		}
 	}
 
