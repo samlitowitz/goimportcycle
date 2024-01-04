@@ -2,6 +2,7 @@ package ast
 
 import (
 	"go/ast"
+	"go/token"
 	"path/filepath"
 	"strings"
 
@@ -84,6 +85,9 @@ func (builder *PrimitiveBuilder) AddNode(node ast.Node) error {
 		if builder.curFile == nil {
 			// return custom error, undefined file
 		}
+		if node.Name.String() == "" {
+			// return custom error, invalid function name
+		}
 		if _, ok := builder.curFile.Decls[node.QualifiedName]; ok {
 			// return custom error, duplicate decl
 		}
@@ -98,6 +102,54 @@ func (builder *PrimitiveBuilder) AddNode(node ast.Node) error {
 			File:         builder.curFile,
 			ReceiverDecl: receiverDecl,
 			Name:         node.Name.String(),
+		}
+
+	case *ast.GenDecl:
+		if builder.curPkg == nil {
+			// return custom error, undefined package
+		}
+		if builder.curFile == nil {
+			// return custom error, undefined file
+		}
+		for _, spec := range node.Specs {
+			switch spec := spec.(type) {
+			case *ast.TypeSpec:
+				if node.Tok != token.TYPE {
+					// return custom error, invalid declaration
+				}
+				if _, ok := builder.curFile.Decls[spec.Name.String()]; ok {
+					// return custom error, duplicate decl
+				}
+				if spec.Name.String() == "" {
+					// return custom error, invalid type name
+				}
+				builder.curFile.Decls[spec.Name.String()] = &internal.Decl{
+					File:         builder.curFile,
+					ReceiverDecl: nil,
+					Name:         spec.Name.String(),
+				}
+
+			case *ast.ValueSpec:
+				if node.Tok != token.CONST && node.Tok != token.VAR {
+					// return custom error, invalid declaration
+				}
+				for _, name := range spec.Names {
+					if _, ok := builder.curFile.Decls[name.String()]; ok {
+						// return custom error, duplicate decl
+					}
+					if name.String() == "" {
+						// return custom error, invalid const/var name
+					}
+					builder.curFile.Decls[name.String()] = &internal.Decl{
+						File:         builder.curFile,
+						ReceiverDecl: nil,
+						Name:         name.String(),
+					}
+				}
+
+			default:
+				// return custom error, unhandled spec type
+			}
 		}
 	}
 
