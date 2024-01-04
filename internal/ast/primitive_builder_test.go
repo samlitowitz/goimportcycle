@@ -1061,13 +1061,19 @@ func TestPrimitiveBuilder_AddNode_FunctionDeclarations(t *testing.T) {
 				return
 			}
 			// set data for files
-			n.data = "package " + n.pkg + "\n\n"
-
 			n.data = fmt.Sprintf(
 				`
 package %s
 
 func %sFn() { }
+
+type A struct { }
+
+func (a *A) AFn() { }
+
+func (b *B) BFn() { }
+
+type B struct { }
 `,
 				n.pkg,
 				n.pkg,
@@ -1092,11 +1098,21 @@ func %sFn() { }
 					if _, ok := expectedFuncsByFileName[n.name]; !ok {
 						expectedFuncsByFileName[n.name] = make(map[string]*internal.Decl, 1)
 					}
-					decl := &internal.Decl{
+					declPkgFn := &internal.Decl{
 						File: nil,
 						Name: n.pkg + "Fn",
 					}
-					expectedFuncsByFileName[n.name][decl.Name] = decl
+					declAFn := &internal.Decl{
+						File: nil,
+						Name: "AFn",
+					}
+					declBFn := &internal.Decl{
+						File: nil,
+						Name: "BFn",
+					}
+					expectedFuncsByFileName[n.name][declPkgFn.Name] = declPkgFn
+					expectedFuncsByFileName[n.name][declAFn.Name] = declAFn
+					expectedFuncsByFileName[n.name][declBFn.Name] = declBFn
 					return
 				}
 				directoryPathsInOrder = append(
@@ -1379,7 +1395,6 @@ func TestPrimitiveBuilder_AddNode_GeneralDeclarations(t *testing.T) {
 				return
 			}
 			// set data for files
-			n.data = "package " + n.pkg + "\n\n"
 			n.data = fmt.Sprintf(
 				`
 package %s
@@ -1504,6 +1519,355 @@ type %s_TYPE struct {}
 						}
 
 					case *ast.GenDecl:
+						err = builder.AddNode(astNode)
+						if err != nil {
+							cancel()
+							t.Error(err)
+						}
+					}
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+		<-ctx.Done()
+
+		for _, file := range builder.Files() {
+			if _, ok := expectedDeclsByFileName[file.FileName]; !ok {
+				t.Errorf(
+					"%s: unexpected file: %s \"%s\"",
+					testCase,
+					file.FileName,
+					file.AbsPath,
+				)
+				continue
+			}
+			for _, decl := range file.Decls {
+				if _, ok := expectedDeclsByFileName[file.FileName][decl.Name]; !ok {
+					t.Errorf(
+						"%s: unexpected decl: %s in %s",
+						testCase,
+						decl.Name,
+						file.FileName,
+					)
+					continue
+				}
+				delete(expectedDeclsByFileName[file.FileName], decl.Name)
+			}
+			if len(expectedDeclsByFileName[file.FileName]) != 0 {
+				for _, decl := range expectedDeclsByFileName[file.FileName] {
+					t.Errorf(
+						"%s: missing expected decls: %s in %s",
+						testCase,
+						decl.Name,
+						file.FileName,
+					)
+				}
+			}
+			delete(expectedDeclsByFileName, file.FileName)
+		}
+
+		if len(expectedDeclsByFileName) != 0 {
+			for fileName := range expectedDeclsByFileName {
+				t.Errorf(
+					"%s: missing expected file: %s",
+					testCase,
+					fileName,
+				)
+			}
+		}
+	}
+}
+
+func TestPrimitiveBuilder_AddNode_SelectExpressions(t *testing.T) {
+	// REFURL: https://github.com/golang/go/blob/988b718f4130ab5b3ce5a5774e1a58e83c92a163/src/path/filepath/path_test.go#L600
+	// -- START -- //
+	if runtime.GOOS == "ios" {
+		restore := chtmpdir(t)
+		defer restore()
+	}
+
+	tmpDir := t.TempDir()
+
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal("finding working dir:", err)
+	}
+	if err = os.Chdir(tmpDir); err != nil {
+		t.Fatal("entering temp dir:", err)
+	}
+	defer os.Chdir(origDir)
+	// -- END -- //
+
+	tree := &Node{
+		"testdata",
+		[]*Node{
+			{
+				"main",
+				[]*Node{
+					{
+						"main.go",
+						nil,
+						"main",
+						"",
+					},
+				},
+				"main",
+				"",
+			},
+			{
+				"no_main",
+				[]*Node{
+					{
+						"no_main.go",
+						nil,
+						"no_main",
+						"",
+					},
+					{
+						"a",
+						[]*Node{
+							{
+								"a.go",
+								nil,
+								"a",
+								"",
+							},
+							{
+								"b",
+								[]*Node{
+									{
+										"b.go",
+										nil,
+										"b",
+										"",
+									},
+								},
+								"b",
+								"",
+							},
+						},
+						"a",
+						"",
+					},
+					{
+						"c",
+						[]*Node{
+							{
+								"c.go",
+								nil,
+								"c",
+								"",
+							},
+						},
+						"c",
+						"",
+					},
+				},
+				"no_main",
+				"",
+			},
+			{
+				"both",
+				[]*Node{
+					{
+						"main.go",
+						nil,
+						"main",
+						"",
+					},
+					{
+						"a",
+						[]*Node{
+							{
+								"a.go",
+								nil,
+								"a",
+								"",
+							},
+							{
+								"b",
+								[]*Node{
+									{
+										"b.go",
+										nil,
+										"b",
+										"",
+									},
+								},
+								"b",
+								"",
+							},
+						},
+						"a",
+						"",
+					},
+					{
+						"c",
+						[]*Node{
+							{
+								"c.go",
+								nil,
+								"c",
+								"",
+							},
+						},
+						"c",
+						"",
+					},
+				},
+				"both",
+				"",
+			},
+		},
+		"",
+		"",
+	}
+
+	walkTree(
+		tree,
+		tree.name,
+		func(path string, n *Node) {
+			// don't update directories
+			if n.entries != nil {
+				return
+			}
+			// set data for files
+			n.data = fmt.Sprintf(
+				`
+package %s
+
+import (
+	"fmt"
+	%sFmt "fmt"
+)
+
+init() {
+	fmt.Println("Hello")
+	%sFmt.Println("Jello")
+}
+`,
+				n.pkg,
+				n.pkg,
+				n.pkg,
+			)
+		},
+	)
+	makeTree(t, tree)
+
+	for _, treeNode := range tree.entries {
+		testCase := treeNode.name
+		dirOut := make(chan string)
+		depVis, nodeOut := internalAST.NewDependencyVisitor()
+		builder := internalAST.NewPrimitiveBuilder("", tmpDir)
+
+		expectedDeclsByFileName := make(map[string]map[string]*internal.Decl, 0)
+		directoryPathsInOrder := []string{}
+		walkTree(
+			treeNode,
+			treeNode.name,
+			func(path string, n *Node) {
+				if n.entries == nil {
+					if _, ok := expectedDeclsByFileName[n.name]; !ok {
+						expectedDeclsByFileName[n.name] = make(map[string]*internal.Decl, 1)
+					}
+					conDecl := &internal.Decl{
+						File: nil,
+						Name: n.pkg + "_CONST",
+					}
+					varDecl := &internal.Decl{
+						File: nil,
+						Name: n.pkg + "_VAR",
+					}
+					typDecl := &internal.Decl{
+						File: nil,
+						Name: n.pkg + "_TYPE",
+					}
+					expectedDeclsByFileName[n.name][conDecl.Name] = conDecl
+					expectedDeclsByFileName[n.name][varDecl.Name] = varDecl
+					expectedDeclsByFileName[n.name][typDecl.Name] = typDecl
+					return
+				}
+				directoryPathsInOrder = append(
+					directoryPathsInOrder,
+					tmpDir+string(filepath.Separator)+"testdata"+string(filepath.Separator)+path,
+				)
+			},
+		)
+
+		ctx, cancel := context.WithCancel(context.Background())
+
+		go func() {
+			for _, dirPath := range directoryPathsInOrder {
+				dirOut <- dirPath
+			}
+			close(dirOut)
+		}()
+
+		go func() {
+			for {
+				select {
+				case dirPath, ok := <-dirOut:
+					if !ok {
+						depVis.Close()
+						return
+					}
+					fset := token.NewFileSet()
+					pkgs, err := parser.ParseDir(fset, dirPath, nil, 0)
+					if err != nil {
+						cancel()
+						t.Fatalf("%s: %s", testCase, err)
+					}
+
+					for _, pkg := range pkgs {
+						ast.Walk(depVis, pkg)
+					}
+
+				case <-ctx.Done():
+					depVis.Close()
+					return
+				}
+			}
+		}()
+
+		go func() {
+			for {
+				select {
+				case astNode, ok := <-nodeOut:
+					if !ok {
+						cancel()
+						return
+					}
+					switch astNode := astNode.(type) {
+					case *internalAST.Package:
+						err = builder.AddNode(astNode)
+						if err != nil {
+							cancel()
+							t.Error(err)
+						}
+
+					case *internalAST.File:
+						err = builder.AddNode(astNode)
+						if err != nil {
+							cancel()
+							t.Error(err)
+						}
+
+					case *internalAST.FuncDecl:
+						err = builder.AddNode(astNode)
+						if err != nil {
+							cancel()
+							t.Error(err)
+						}
+
+					case *ast.GenDecl:
+						err = builder.AddNode(astNode)
+						if err != nil {
+							cancel()
+							t.Error(err)
+						}
+
+					case *ast.SelectorExpr:
 						err = builder.AddNode(astNode)
 						if err != nil {
 							cancel()
