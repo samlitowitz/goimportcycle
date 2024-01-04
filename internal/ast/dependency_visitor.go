@@ -81,16 +81,6 @@ func (v *DependencyVisitor) Visit(node ast.Node) ast.Visitor {
 
 		v.out <- node
 
-	case *ast.GenDecl:
-		switch node.Tok {
-		case token.CONST:
-			fallthrough
-		case token.TYPE:
-			fallthrough
-		case token.VAR:
-			v.out <- node
-		}
-
 	case *ast.FuncDecl:
 		receiverName := ""
 		qualifiedName := node.Name.String()
@@ -120,6 +110,16 @@ func (v *DependencyVisitor) Visit(node ast.Node) ast.Visitor {
 			FuncDecl:      node,
 			ReceiverName:  receiverName,
 			QualifiedName: qualifiedName,
+		}
+
+	case *ast.GenDecl:
+		switch node.Tok {
+		case token.CONST:
+			fallthrough
+		case token.TYPE:
+			fallthrough
+		case token.VAR:
+			v.out <- node
 		}
 
 	case *ast.SelectorExpr:
