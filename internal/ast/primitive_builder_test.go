@@ -16,6 +16,481 @@ import (
 	internalAST "github.com/samlitowitz/goimportcycle/internal/ast"
 )
 
+func TestPrimitiveBuilder_MarkupImportCycles_CorrectlyMarksImportCycles(t *testing.T) {
+
+	//testCases := map[string]struct {
+	//	inputOrderedNodes []ast.Node
+	//}{
+	//	// none: a -> b -> c
+	//	"none": {
+	//		inputOrderedNodes: []ast.Node{
+	//			&internalAST.Package{
+	//				Package: &ast.Package{
+	//					Name: "a",
+	//				},
+	//				DirName: "a",
+	//			},
+	//			&internalAST.File{
+	//				File:    &ast.File{},
+	//				AbsPath: "/app/a/a.go",
+	//				DirName: "a",
+	//			},
+	//		},
+	//	},
+	//	// simple: a -> b -> a
+	//	"simple": {},
+	//	// transitive: a -> b -> c -> a
+	//	"transitive": {},
+	//	// multiple independent: a -> b -> a, a -> c -> a
+	//	"multiple independent": {},
+	//	// multiple interlinked: a -> b -> a, b -> c -> b
+	//	"multiple interlinked": {},
+	//}
+
+	// primitive builder -> add node
+	// primitive builder -> markup import cycles
+	// check import cycles on files and packages
+}
+
+func TestPrimitiveBuilder_MarkupImportCycles_None(t *testing.T) {
+	t.Fatal("Fix imports first")
+	// REFURL: https://github.com/golang/go/blob/988b718f4130ab5b3ce5a5774e1a58e83c92a163/src/path/filepath/path_test.go#L600
+	// -- START -- //
+	if runtime.GOOS == "ios" {
+		restore := chtmpdir(t)
+		defer restore()
+	}
+
+	tmpDir := t.TempDir()
+
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal("finding working dir:", err)
+	}
+	if err = os.Chdir(tmpDir); err != nil {
+		t.Fatal("entering temp dir:", err)
+	}
+	defer os.Chdir(origDir)
+	// -- END -- //
+
+	tree := &Node{
+		"testdata",
+		[]*Node{
+			// none: a -> b -> c
+			{
+				"none",
+				[]*Node{
+					{
+						"a",
+						[]*Node{
+							{
+								"a.go",
+								nil,
+								"a",
+								`
+package a
+
+import "b"
+
+func init() {
+	b.Fn()
+}
+`,
+							},
+						},
+						"",
+						"",
+					},
+					{
+						"b",
+						[]*Node{
+							{
+								"b.go",
+								nil,
+								"b",
+								`
+package b
+
+import "c"
+
+func Fb() {
+	c.Fn()
+}
+`,
+							},
+						},
+						"",
+						"",
+					},
+					{
+						"c",
+						[]*Node{
+							{
+								"c.go",
+								nil,
+								"c",
+								`
+package c
+
+func Fn() { }
+`,
+							},
+						},
+						"",
+						"",
+					},
+				},
+				"",
+				"",
+			},
+		},
+		"",
+		"",
+	}
+	makeTree(t, tree)
+
+	for _, treeNode := range tree.entries {
+		testCase := treeNode.name
+		dirOut := make(chan string)
+		depVis, nodeOut := internalAST.NewDependencyVisitor()
+		builder := internalAST.NewPrimitiveBuilder("", tmpDir)
+
+		directoryPathsInOrder := []string{}
+		walkTree(
+			treeNode,
+			treeNode.name,
+			func(path string, n *Node) {
+				if n.entries == nil {
+					return
+				}
+				directoryPathsInOrder = append(
+					directoryPathsInOrder,
+					tmpDir+string(filepath.Separator)+"testdata"+string(filepath.Separator)+path,
+				)
+			},
+		)
+
+		ctx, cancel := context.WithCancel(context.Background())
+
+		go func() {
+			for _, dirPath := range directoryPathsInOrder {
+				dirOut <- dirPath
+			}
+			close(dirOut)
+		}()
+
+		go func() {
+			for {
+				select {
+				case dirPath, ok := <-dirOut:
+					if !ok {
+						depVis.Close()
+						return
+					}
+					fset := token.NewFileSet()
+					pkgs, err := parser.ParseDir(fset, dirPath, nil, 0)
+					if err != nil {
+						cancel()
+						t.Fatalf("%s: %s", testCase, err)
+					}
+
+					for _, pkg := range pkgs {
+						ast.Walk(depVis, pkg)
+					}
+
+				case <-ctx.Done():
+					depVis.Close()
+					return
+				}
+			}
+		}()
+
+		go func() {
+			for {
+				select {
+				case astNode, ok := <-nodeOut:
+					if !ok {
+						cancel()
+						return
+					}
+					switch astNode := astNode.(type) {
+					case *internalAST.Package:
+						err = builder.AddNode(astNode)
+						if err != nil {
+							cancel()
+							t.Error(err)
+						}
+
+					case *internalAST.File:
+						err = builder.AddNode(astNode)
+						if err != nil {
+							cancel()
+							t.Error(err)
+						}
+
+					case *internalAST.ImportSpec:
+						err = builder.AddNode(astNode)
+						if err != nil {
+							cancel()
+							t.Error(err)
+						}
+
+					case *internalAST.FuncDecl:
+						err = builder.AddNode(astNode)
+						if err != nil {
+							cancel()
+							t.Error(err)
+						}
+
+					case *ast.GenDecl:
+						err = builder.AddNode(astNode)
+						if err != nil {
+							cancel()
+							t.Error(err)
+						}
+
+					case *internalAST.SelectorExpr:
+						err = builder.AddNode(astNode)
+						if err != nil {
+							cancel()
+							t.Error(err)
+						}
+					}
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+		<-ctx.Done()
+
+		err := builder.MarkupImportCycles()
+		if err != nil {
+			t.Fatalf(
+				"%s: error marking up import cycles: %s",
+				testCase,
+				err,
+			)
+		}
+
+		for _, file := range builder.Files() {
+			if file.InImportCycle {
+				t.Errorf(
+					"%s: unexpected import cycle: %s",
+					testCase,
+					file.AbsPath,
+				)
+			}
+		}
+	}
+}
+
+func TestPrimitiveBuilder_MarkupImportCycles_Simple(t *testing.T) {
+	t.Fatal("Fix imports first")
+	// REFURL: https://github.com/golang/go/blob/988b718f4130ab5b3ce5a5774e1a58e83c92a163/src/path/filepath/path_test.go#L600
+	// -- START -- //
+	if runtime.GOOS == "ios" {
+		restore := chtmpdir(t)
+		defer restore()
+	}
+
+	tmpDir := t.TempDir()
+
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal("finding working dir:", err)
+	}
+	if err = os.Chdir(tmpDir); err != nil {
+		t.Fatal("entering temp dir:", err)
+	}
+	defer os.Chdir(origDir)
+	// -- END -- //
+
+	tree := &Node{
+		"testdata",
+		[]*Node{
+			// simple: a -> b -> a
+			{
+				"simple",
+				[]*Node{
+					{
+						"a",
+						[]*Node{
+							{
+								"a.go",
+								nil,
+								"a",
+								`
+package a
+
+import "b"
+`,
+							},
+						},
+						"",
+						"",
+					},
+					{
+						"b",
+						[]*Node{
+							{
+								"b.go",
+								nil,
+								"b",
+								`
+package b
+
+import "a"
+`,
+							},
+						},
+						"",
+						"",
+					},
+				},
+				"",
+				"",
+			},
+		},
+		"",
+		"",
+	}
+	makeTree(t, tree)
+
+	for _, treeNode := range tree.entries {
+		testCase := treeNode.name
+		dirOut := make(chan string)
+		depVis, nodeOut := internalAST.NewDependencyVisitor()
+		builder := internalAST.NewPrimitiveBuilder("", tmpDir)
+
+		directoryPathsInOrder := []string{}
+		walkTree(
+			treeNode,
+			treeNode.name,
+			func(path string, n *Node) {
+				if n.entries == nil {
+					return
+				}
+				directoryPathsInOrder = append(
+					directoryPathsInOrder,
+					tmpDir+string(filepath.Separator)+"testdata"+string(filepath.Separator)+path,
+				)
+			},
+		)
+
+		ctx, cancel := context.WithCancel(context.Background())
+
+		go func() {
+			for _, dirPath := range directoryPathsInOrder {
+				dirOut <- dirPath
+			}
+			close(dirOut)
+		}()
+
+		go func() {
+			for {
+				select {
+				case dirPath, ok := <-dirOut:
+					if !ok {
+						depVis.Close()
+						return
+					}
+					fset := token.NewFileSet()
+					pkgs, err := parser.ParseDir(fset, dirPath, nil, 0)
+					if err != nil {
+						cancel()
+						t.Fatalf("%s: %s", testCase, err)
+					}
+
+					for _, pkg := range pkgs {
+						ast.Walk(depVis, pkg)
+					}
+
+				case <-ctx.Done():
+					depVis.Close()
+					return
+				}
+			}
+		}()
+
+		go func() {
+			for {
+				select {
+				case astNode, ok := <-nodeOut:
+					if !ok {
+						cancel()
+						return
+					}
+					switch astNode := astNode.(type) {
+					case *internalAST.Package:
+						err = builder.AddNode(astNode)
+						if err != nil {
+							cancel()
+							t.Error(err)
+						}
+
+					case *internalAST.File:
+						err = builder.AddNode(astNode)
+						if err != nil {
+							cancel()
+							t.Error(err)
+						}
+
+					case *internalAST.ImportSpec:
+						err = builder.AddNode(astNode)
+						if err != nil {
+							cancel()
+							t.Error(err)
+						}
+
+					case *internalAST.FuncDecl:
+						err = builder.AddNode(astNode)
+						if err != nil {
+							cancel()
+							t.Error(err)
+						}
+
+					case *ast.GenDecl:
+						err = builder.AddNode(astNode)
+						if err != nil {
+							cancel()
+							t.Error(err)
+						}
+
+					case *internalAST.SelectorExpr:
+						err = builder.AddNode(astNode)
+						if err != nil {
+							cancel()
+							t.Error(err)
+						}
+					}
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+		<-ctx.Done()
+
+		err := builder.MarkupImportCycles()
+		if err != nil {
+			t.Fatalf(
+				"%s: error marking up import cycles: %s",
+				testCase,
+				err,
+			)
+		}
+
+		for _, file := range builder.Files() {
+			if file.InImportCycle {
+				t.Errorf(
+					"%s: unexpected import cycle: %s",
+					testCase,
+					file.AbsPath,
+				)
+			}
+		}
+	}
+}
+
 func TestPrimitiveBuilder_AddNode_Packages(t *testing.T) {
 	// REFURL: https://github.com/golang/go/blob/988b718f4130ab5b3ce5a5774e1a58e83c92a163/src/path/filepath/path_test.go#L600
 	// -- START -- //
@@ -566,6 +1041,7 @@ func TestPrimitiveBuilder_AddNode_Files(t *testing.T) {
 	}
 }
 
+// TODO: Test importing from same package, creates stubs right now
 func TestPrimitiveBuilder_AddNode_Imports(t *testing.T) {
 	// REFURL: https://github.com/golang/go/blob/988b718f4130ab5b3ce5a5774e1a58e83c92a163/src/path/filepath/path_test.go#L600
 	// -- START -- //

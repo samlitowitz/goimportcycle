@@ -30,6 +30,41 @@ func NewPrimitiveBuilder(modulePath, moduleRootDirectory string) *PrimitiveBuild
 	}
 }
 
+func (builder *PrimitiveBuilder) MarkupImportCycles() error {
+	var stk fileStack
+	for _, baseFile := range builder.filesByUID {
+		err := builder.markupImportCycles(baseFile, &stk)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (builder *PrimitiveBuilder) markupImportCycles(
+	baseFile *internal.File,
+	stk *fileStack,
+) error {
+	for _, refFile := range baseFile.ReferencedFiles() {
+		// If you eventually import yourself, it's a cycle
+		if baseFile.UID() == refFile.UID() {
+			// Mark all files and their packages as part of the cycle
+			for _, fileToMark := range *stk {
+				fileToMark.InImportCycle = true
+				fileToMark.Package.InImportCycle = true
+			}
+			continue
+		}
+		stk.Push(refFile)
+		err := builder.markupImportCycles(refFile, stk)
+		if err != nil {
+			return err
+		}
+		stk.Pop()
+	}
+	return nil
+}
+
 func (builder *PrimitiveBuilder) AddNode(node ast.Node) error {
 	switch node := node.(type) {
 	case *Package:
@@ -324,4 +359,25 @@ func copyPackage(to, from *internal.Package) {
 	to.ModuleRoot = from.ModuleRoot
 	to.Name = from.Name
 	to.Files = from.Files
+}
+
+type fileStack []*internal.File
+
+func (s *fileStack) Push(p *internal.File) {
+	*s = append(*s, p)
+}
+
+func (s *fileStack) Pop() {
+	*s = (*s)[0 : len(*s)-1]
+}
+
+func (s *fileStack) Copy() []*internal.File {
+	return append([]*internal.File{}, *s...)
+}
+
+func (s *fileStack) Top() *internal.File {
+	if len(*s) == 0 {
+		return nil
+	}
+	return (*s)[len(*s)-1]
 }

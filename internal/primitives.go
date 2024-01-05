@@ -13,7 +13,8 @@ type Package struct {
 
 	Files map[string]*File
 
-	IsStub bool
+	IsStub        bool
+	InImportCycle bool
 }
 
 func (pkg Package) ImportPath() string {
@@ -43,7 +44,8 @@ type File struct {
 	Imports map[string]*Import
 	Decls   map[string]*Decl
 
-	IsStub bool
+	IsStub        bool
+	InImportCycle bool
 }
 
 func (f File) HasDecl(decl *Decl) bool {
