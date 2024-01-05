@@ -1253,7 +1253,7 @@ func init() {
 					return
 				}
 				switch node := node.(type) {
-				case *ast.SelectorExpr:
+				case *internalAST.SelectorExpr:
 					x, ok := node.X.(*ast.Ident)
 					if !ok {
 						cancel()
