@@ -20,6 +20,13 @@ type File struct {
 	DirName string
 }
 
+type ImportSpec struct {
+	*ast.ImportSpec
+
+	IsAliased bool
+	Alias     string
+}
+
 type FuncDecl struct {
 	*ast.FuncDecl
 
@@ -88,7 +95,7 @@ func (v *DependencyVisitor) Visit(node ast.Node) ast.Visitor {
 			impName = x.String()
 		}
 
-		// this should never happen
+		// if the "import name" is actually a variable and not a package, skip it
 		if _, ok := v.fileImports[impName]; !ok {
 			return v
 		}
@@ -129,14 +136,29 @@ func (v *DependencyVisitor) emitPackageAndFiles(node *ast.Package) {
 
 func (v *DependencyVisitor) emitImportSpec(node *ast.ImportSpec) {
 	node.Path.Value = strings.Trim(node.Path.Value, "\"")
-	if node.Name == nil {
-		pieces := strings.Split(node.Path.Value, "/")
+	pieces := strings.Split(node.Path.Value, "/")
+	name := pieces[len(pieces)-1]
+
+	isAliased := node.Name != nil
+	alias := ""
+
+	if isAliased {
+		alias = node.Name.String()
+		node.Name.Name = name
+	}
+
+	if !isAliased {
 		node.Name = &ast.Ident{
-			Name: pieces[len(pieces)-1],
+			Name: name,
 		}
 	}
+
 	v.fileImports[node.Name.String()] = struct{}{}
-	v.out <- node
+	v.out <- &ImportSpec{
+		ImportSpec: node,
+		IsAliased:  isAliased,
+		Alias:      alias,
+	}
 }
 
 func (v *DependencyVisitor) emitFuncDecl(node *ast.FuncDecl) {

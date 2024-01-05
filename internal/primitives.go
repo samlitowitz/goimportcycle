@@ -1,12 +1,37 @@
 package internal
 
+import (
+	"path/filepath"
+	"strings"
+)
+
 type Package struct {
 	DirName string
 
-	ImportPath string
+	ModuleRoot string
 	Name       string
 
 	Files map[string]*File
+
+	IsStub bool
+}
+
+func (pkg Package) ImportPath() string {
+	if pkg.Name == "main" {
+		return ""
+	}
+	return strings.TrimPrefix(
+		pkg.DirName,
+		pkg.ModuleRoot+string(filepath.Separator),
+	)
+}
+
+func (pkg Package) UID() string {
+	uid := pkg.ImportPath()
+	if uid != "" {
+		return uid
+	}
+	return pkg.DirName
 }
 
 type File struct {
@@ -17,6 +42,18 @@ type File struct {
 
 	Imports map[string]*Import
 	Decls   map[string]*Decl
+
+	IsStub bool
+}
+
+func (f File) HasDecl(decl *Decl) bool {
+	for _, fDecl := range f.Decls {
+		if decl.UID() != fDecl.UID() {
+			continue
+		}
+		return true
+	}
+	return false
 }
 
 func (f File) ReferencedFiles() []*File {
@@ -36,6 +73,10 @@ func (f File) ReferencedFiles() []*File {
 
 }
 
+func (f File) UID() string {
+	return f.AbsPath
+}
+
 type Decl struct {
 	File         *File
 	ReceiverDecl *Decl
@@ -43,12 +84,26 @@ type Decl struct {
 	Name string
 }
 
+func (decl Decl) UID() string {
+	return decl.QualifiedName()
+}
+
+func (d Decl) QualifiedName() string {
+	if d.ReceiverDecl == nil {
+		return d.Name
+	}
+	return d.ReceiverDecl.Name + "." + d.Name
+}
+
 type Import struct {
 	Package *Package
-	File    *File
 
 	Name string
 	Path string
 
 	ReferencedTypes map[string]*Decl
+}
+
+func (i Import) UID() string {
+	return i.Name
 }

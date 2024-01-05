@@ -671,7 +671,7 @@ func (a A) Error() string {
 					return
 				}
 				switch node := node.(type) {
-				case *ast.ImportSpec:
+				case *internalAST.ImportSpec:
 					if len(expectedImportPathsInOrder) == 0 {
 						cancel()
 						t.Errorf(

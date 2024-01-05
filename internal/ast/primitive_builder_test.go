@@ -191,13 +191,9 @@ func TestPrimitiveBuilder_AddNode_Packages(t *testing.T) {
 					return
 				}
 				pkg := &internal.Package{
-					DirName:    tmpDir + string(filepath.Separator) + "testdata" + string(filepath.Separator) + path,
-					ImportPath: "",
-					Name:       n.pkg,
-					Files:      nil,
-				}
-				if n.name != "main" {
-					pkg.ImportPath = path
+					DirName: tmpDir + string(filepath.Separator) + "testdata" + string(filepath.Separator) + path,
+					Name:    n.pkg,
+					Files:   nil,
 				}
 				expectedPackagesByDirName[pkg.DirName] = pkg
 
@@ -851,7 +847,7 @@ func init() {
 							t.Error(err)
 						}
 
-					case *ast.ImportSpec:
+					case *internalAST.ImportSpec:
 						err = builder.AddNode(astNode)
 						if err != nil {
 							cancel()
@@ -1174,6 +1170,13 @@ type B struct { }
 						}
 
 					case *internalAST.File:
+						err = builder.AddNode(astNode)
+						if err != nil {
+							cancel()
+							t.Error(err)
+						}
+
+					case *internalAST.ImportSpec:
 						err = builder.AddNode(astNode)
 						if err != nil {
 							cancel()
@@ -1511,6 +1514,13 @@ type %s_TYPE struct {}
 							t.Error(err)
 						}
 
+					case *internalAST.ImportSpec:
+						err = builder.AddNode(astNode)
+						if err != nil {
+							cancel()
+							t.Error(err)
+						}
+
 					case *internalAST.FuncDecl:
 						err = builder.AddNode(astNode)
 						if err != nil {
@@ -1740,11 +1750,18 @@ package %s
 import (
 	"fmt"
 	%sFmt "fmt"
+	"log"
+	"os"
 )
 
-init() {
+func init() {
 	fmt.Println("Hello")
 	%sFmt.Println("Jello")
+	file, err := os.Open("file.go") // For read access.
+	if err != nil {
+		log.Fatal(err)
+	}
+	file.Close()
 }
 `,
 				n.pkg,
@@ -1761,31 +1778,50 @@ init() {
 		depVis, nodeOut := internalAST.NewDependencyVisitor()
 		builder := internalAST.NewPrimitiveBuilder("", tmpDir)
 
-		expectedDeclsByFileName := make(map[string]map[string]*internal.Decl, 0)
+		expectedImportRefsByFileName := make(map[string]map[string]map[string]*internal.Decl, 0)
 		directoryPathsInOrder := []string{}
 		walkTree(
 			treeNode,
 			treeNode.name,
 			func(path string, n *Node) {
 				if n.entries == nil {
-					if _, ok := expectedDeclsByFileName[n.name]; !ok {
-						expectedDeclsByFileName[n.name] = make(map[string]*internal.Decl, 1)
+					if _, ok := expectedImportRefsByFileName[n.name]; !ok {
+						expectedImportRefsByFileName[n.name] = make(map[string]map[string]*internal.Decl, 1)
 					}
-					conDecl := &internal.Decl{
-						File: nil,
-						Name: n.pkg + "_CONST",
+					if _, ok := expectedImportRefsByFileName[n.name]["fmt"]; !ok {
+						expectedImportRefsByFileName[n.name]["fmt"] = make(map[string]*internal.Decl, 1)
 					}
-					varDecl := &internal.Decl{
-						File: nil,
-						Name: n.pkg + "_VAR",
+					pkgAlias := n.pkg + "Fmt"
+					if _, ok := expectedImportRefsByFileName[n.name][pkgAlias]; !ok {
+						expectedImportRefsByFileName[n.name][pkgAlias] = make(map[string]*internal.Decl, 1)
 					}
-					typDecl := &internal.Decl{
-						File: nil,
-						Name: n.pkg + "_TYPE",
+					if _, ok := expectedImportRefsByFileName[n.name]["os"]; !ok {
+						expectedImportRefsByFileName[n.name]["os"] = make(map[string]*internal.Decl, 1)
 					}
-					expectedDeclsByFileName[n.name][conDecl.Name] = conDecl
-					expectedDeclsByFileName[n.name][varDecl.Name] = varDecl
-					expectedDeclsByFileName[n.name][typDecl.Name] = typDecl
+					if _, ok := expectedImportRefsByFileName[n.name]["log"]; !ok {
+						expectedImportRefsByFileName[n.name]["log"] = make(map[string]*internal.Decl, 1)
+					}
+
+					unaliased := &internal.Decl{
+						Name: "Println",
+					}
+					aliased := &internal.Decl{
+						Name: "Println",
+					}
+					osOpen := &internal.Decl{
+						Name: "Open",
+					}
+					logFatal := &internal.Decl{
+						Name: "Fatal",
+					}
+					osClose := &internal.Decl{
+						Name: "Close",
+					}
+					expectedImportRefsByFileName[n.name]["fmt"][unaliased.Name] = unaliased
+					expectedImportRefsByFileName[n.name][pkgAlias][aliased.Name] = aliased
+					expectedImportRefsByFileName[n.name]["os"][osOpen.Name] = osOpen
+					expectedImportRefsByFileName[n.name]["log"][logFatal.Name] = logFatal
+					expectedImportRefsByFileName[n.name]["os"][osClose.Name] = osClose
 					return
 				}
 				directoryPathsInOrder = append(
@@ -1853,6 +1889,13 @@ init() {
 							t.Error(err)
 						}
 
+					case *internalAST.ImportSpec:
+						err = builder.AddNode(astNode)
+						if err != nil {
+							cancel()
+							t.Error(err)
+						}
+
 					case *internalAST.FuncDecl:
 						err = builder.AddNode(astNode)
 						if err != nil {
@@ -1882,7 +1925,7 @@ init() {
 		<-ctx.Done()
 
 		for _, file := range builder.Files() {
-			if _, ok := expectedDeclsByFileName[file.FileName]; !ok {
+			if _, ok := expectedImportRefsByFileName[file.FileName]; !ok {
 				t.Errorf(
 					"%s: unexpected file: %s \"%s\"",
 					testCase,
@@ -1891,33 +1934,53 @@ init() {
 				)
 				continue
 			}
-			for _, decl := range file.Decls {
-				if _, ok := expectedDeclsByFileName[file.FileName][decl.Name]; !ok {
+			for _, imp := range file.Imports {
+				if _, ok := expectedImportRefsByFileName[file.FileName][imp.Name]; !ok {
 					t.Errorf(
-						"%s: unexpected decl: %s in %s",
+						"%s: unexpected import: %s in %s",
 						testCase,
-						decl.Name,
+						imp.Name,
 						file.FileName,
 					)
 					continue
 				}
-				delete(expectedDeclsByFileName[file.FileName], decl.Name)
+				for _, decl := range imp.ReferencedTypes {
+					qualifiedName := decl.QualifiedName()
+					if _, ok := expectedImportRefsByFileName[file.FileName][imp.Name][qualifiedName]; !ok {
+						t.Errorf(
+							"%s: unexpected type: %s in %s",
+							testCase,
+							qualifiedName,
+							file.FileName,
+						)
+						continue
+					}
+					delete(expectedImportRefsByFileName[file.FileName][imp.Name], qualifiedName)
+				}
+				if len(expectedImportRefsByFileName[file.FileName][imp.Name]) > 0 {
+					continue
+				}
+				delete(expectedImportRefsByFileName[file.FileName], imp.Name)
 			}
-			if len(expectedDeclsByFileName[file.FileName]) != 0 {
-				for _, decl := range expectedDeclsByFileName[file.FileName] {
-					t.Errorf(
-						"%s: missing expected decls: %s in %s",
-						testCase,
-						decl.Name,
-						file.FileName,
-					)
+			if len(expectedImportRefsByFileName[file.FileName]) != 0 {
+				for impName, imp := range expectedImportRefsByFileName[file.FileName] {
+					for _, decl := range imp {
+						t.Errorf(
+							"%s: missing expected decls: %s.%s in %s",
+							testCase,
+							impName,
+							decl.Name,
+							file.FileName,
+						)
+					}
+
 				}
 			}
-			delete(expectedDeclsByFileName, file.FileName)
+			delete(expectedImportRefsByFileName, file.FileName)
 		}
 
-		if len(expectedDeclsByFileName) != 0 {
-			for fileName := range expectedDeclsByFileName {
+		if len(expectedImportRefsByFileName) != 0 {
+			for fileName := range expectedImportRefsByFileName {
 				t.Errorf(
 					"%s: missing expected file: %s",
 					testCase,
