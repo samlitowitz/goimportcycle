@@ -145,15 +145,16 @@ func (v *DependencyVisitor) emitImportSpec(node *ast.ImportSpec) {
 	if isAliased {
 		alias = node.Name.String()
 		node.Name.Name = name
+		v.fileImports[alias] = struct{}{}
 	}
 
 	if !isAliased {
 		node.Name = &ast.Ident{
 			Name: name,
 		}
+		v.fileImports[name] = struct{}{}
 	}
 
-	v.fileImports[node.Name.String()] = struct{}{}
 	v.out <- &ImportSpec{
 		ImportSpec: node,
 		IsAliased:  isAliased,

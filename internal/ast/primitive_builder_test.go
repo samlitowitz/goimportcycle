@@ -1788,18 +1788,21 @@ func init() {
 					if _, ok := expectedImportRefsByFileName[n.name]; !ok {
 						expectedImportRefsByFileName[n.name] = make(map[string]map[string]*internal.Decl, 1)
 					}
-					if _, ok := expectedImportRefsByFileName[n.name]["fmt"]; !ok {
-						expectedImportRefsByFileName[n.name]["fmt"] = make(map[string]*internal.Decl, 1)
+					fmtImpName := "fmt"
+					if _, ok := expectedImportRefsByFileName[n.name][fmtImpName]; !ok {
+						expectedImportRefsByFileName[n.name][fmtImpName] = make(map[string]*internal.Decl, 1)
 					}
 					pkgAlias := n.pkg + "Fmt"
 					if _, ok := expectedImportRefsByFileName[n.name][pkgAlias]; !ok {
 						expectedImportRefsByFileName[n.name][pkgAlias] = make(map[string]*internal.Decl, 1)
 					}
-					if _, ok := expectedImportRefsByFileName[n.name]["os"]; !ok {
-						expectedImportRefsByFileName[n.name]["os"] = make(map[string]*internal.Decl, 1)
+					osImpName := "os"
+					if _, ok := expectedImportRefsByFileName[n.name][osImpName]; !ok {
+						expectedImportRefsByFileName[n.name][osImpName] = make(map[string]*internal.Decl, 1)
 					}
-					if _, ok := expectedImportRefsByFileName[n.name]["log"]; !ok {
-						expectedImportRefsByFileName[n.name]["log"] = make(map[string]*internal.Decl, 1)
+					logImpName := "log"
+					if _, ok := expectedImportRefsByFileName[n.name][logImpName]; !ok {
+						expectedImportRefsByFileName[n.name][logImpName] = make(map[string]*internal.Decl, 1)
 					}
 
 					unaliased := &internal.Decl{
@@ -1814,14 +1817,10 @@ func init() {
 					logFatal := &internal.Decl{
 						Name: "Fatal",
 					}
-					osClose := &internal.Decl{
-						Name: "Close",
-					}
-					expectedImportRefsByFileName[n.name]["fmt"][unaliased.Name] = unaliased
+					expectedImportRefsByFileName[n.name][fmtImpName][unaliased.Name] = unaliased
 					expectedImportRefsByFileName[n.name][pkgAlias][aliased.Name] = aliased
-					expectedImportRefsByFileName[n.name]["os"][osOpen.Name] = osOpen
-					expectedImportRefsByFileName[n.name]["log"][logFatal.Name] = logFatal
-					expectedImportRefsByFileName[n.name]["os"][osClose.Name] = osClose
+					expectedImportRefsByFileName[n.name][osImpName][osOpen.Name] = osOpen
+					expectedImportRefsByFileName[n.name][logImpName][logFatal.Name] = logFatal
 					return
 				}
 				directoryPathsInOrder = append(
@@ -1910,7 +1909,7 @@ func init() {
 							t.Error(err)
 						}
 
-					case *ast.SelectorExpr:
+					case *internalAST.SelectorExpr:
 						err = builder.AddNode(astNode)
 						if err != nil {
 							cancel()
@@ -1925,6 +1924,9 @@ func init() {
 		<-ctx.Done()
 
 		for _, file := range builder.Files() {
+			if file.IsStub {
+				continue
+			}
 			if _, ok := expectedImportRefsByFileName[file.FileName]; !ok {
 				t.Errorf(
 					"%s: unexpected file: %s \"%s\"",
