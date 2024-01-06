@@ -31,7 +31,7 @@ func NewPrimitiveBuilder(modulePath, moduleRootDirectory string) *PrimitiveBuild
 }
 
 func (builder *PrimitiveBuilder) MarkupImportCycles() error {
-	stk := newFileStack()
+	stk := NewFileStack()
 	for _, baseFile := range builder.filesByUID {
 		stk.Push(baseFile)
 		err := builder.markupImportCycles(baseFile, stk)
@@ -45,13 +45,13 @@ func (builder *PrimitiveBuilder) MarkupImportCycles() error {
 
 func (builder *PrimitiveBuilder) markupImportCycles(
 	baseFile *internal.File,
-	stk *fileStack,
+	stk *FileStack,
 ) error {
 	for _, refFile := range baseFile.ReferencedFiles() {
 		// If you eventually import yourself, it's a cycle
 		if stk.Contains(refFile) {
-			for i := len(stk.stack) - 1; i > 0; i-- {
-				curFile := stk.stack[i]
+			for i := stk.Len() - 1; i > 0; i-- {
+				curFile := stk.At(i)
 				curFile.InImportCycle = true
 				curFile.Package.InImportCycle = true
 				if curFile.UID() == baseFile.UID() {
@@ -442,36 +442,50 @@ func copyDeclaration(to, from *internal.Decl) {
 	to.Name = from.Name
 }
 
-type fileStack struct {
+type FileStack struct {
 	indexByUID map[string]int
 	stack      []*internal.File
 }
 
-func newFileStack() *fileStack {
-	return &fileStack{
+func NewFileStack() *FileStack {
+	return &FileStack{
 		indexByUID: make(map[string]int),
 		stack:      make([]*internal.File, 0),
 	}
 }
 
-func (s *fileStack) Push(f *internal.File) {
+func (s *FileStack) Push(f *internal.File) {
 	s.stack = append(s.stack, f)
 	s.indexByUID[f.UID()] = len(s.stack) - 1
 }
 
-func (s *fileStack) Pop() {
+func (s *FileStack) Pop() {
 	delete(s.indexByUID, s.stack[len(s.stack)-1].UID())
 	s.stack = s.stack[0 : len(s.stack)-1]
 }
 
-func (s *fileStack) Top() *internal.File {
+func (s *FileStack) Top() *internal.File {
 	if len(s.stack) == 0 {
 		return nil
 	}
 	return s.stack[len(s.stack)-1]
 }
 
-func (s *fileStack) Contains(f *internal.File) bool {
+func (s *FileStack) At(i int) *internal.File {
+	if len(s.stack) == 0 {
+		return nil
+	}
+	if i > (len(s.stack) - 1) {
+		return nil
+	}
+	return s.stack[i]
+}
+
+func (s *FileStack) Contains(f *internal.File) bool {
 	_, ok := s.indexByUID[f.UID()]
 	return ok
+}
+
+func (s *FileStack) Len() int {
+	return len(s.stack)
 }
