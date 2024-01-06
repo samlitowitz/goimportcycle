@@ -167,6 +167,7 @@ func (v *DependencyVisitor) emitFuncDecl(node *ast.FuncDecl) {
 	qualifiedName := node.Name.String()
 
 	if node.Recv != nil {
+		// TODO: don't emit receiver functions/methods? we don't need them
 		var typName string
 		switch expr := node.Recv.List[0].Type.(type) {
 		case *ast.Ident:
