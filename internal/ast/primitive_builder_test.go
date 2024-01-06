@@ -1041,7 +1041,6 @@ func TestPrimitiveBuilder_AddNode_Files(t *testing.T) {
 	}
 }
 
-// TODO: Test importing from same package, creates stubs right now
 func TestPrimitiveBuilder_AddNode_Imports(t *testing.T) {
 	// REFURL: https://github.com/golang/go/blob/988b718f4130ab5b3ce5a5774e1a58e83c92a163/src/path/filepath/path_test.go#L600
 	// -- START -- //
@@ -1195,15 +1194,27 @@ func TestPrimitiveBuilder_AddNode_Imports(t *testing.T) {
 			if n.entries != nil {
 				return
 			}
+
+			imports := map[string]string{
+				"net/http":      "",
+				"fmt":           "",
+				n.pkg + "Alias": "fmt",
+			}
+			importStr := ""
+			for imp, path := range imports {
+				if path == "" {
+					importStr += fmt.Sprintf("\t\"%s\"\n", imp)
+					continue
+				}
+				importStr += fmt.Sprintf("\t%s \"%s\"\n", imp, path)
+			}
 			// set data for files
 			n.data = fmt.Sprintf(
 				`
 package %s
 
 import (
-	"net/http"
-	"fmt"
-	%sAlias "fmt"
+	%s
 )
 
 func init() {
@@ -1212,7 +1223,7 @@ func init() {
 }
 `,
 				n.pkg,
-				n.pkg,
+				importStr,
 				n.pkg,
 			)
 		},
@@ -1362,6 +1373,348 @@ func init() {
 						testCase,
 						imp.Name,
 					)
+				}
+
+			}
+		}
+
+		if len(expectedImportSpecs) != 0 {
+			for _, imp := range expectedImportSpecs {
+				t.Errorf(
+					"%s: missing expected import: %s",
+					testCase,
+					imp.Name,
+				)
+			}
+		}
+	}
+}
+
+func TestPrimitiveBuilder_AddNode_Imports_StubFixups(t *testing.T) {
+	// REFURL: https://github.com/golang/go/blob/988b718f4130ab5b3ce5a5774e1a58e83c92a163/src/path/filepath/path_test.go#L600
+	// -- START -- //
+	if runtime.GOOS == "ios" {
+		restore := chtmpdir(t)
+		defer restore()
+	}
+
+	tmpDir := t.TempDir()
+
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal("finding working dir:", err)
+	}
+	if err = os.Chdir(tmpDir); err != nil {
+		t.Fatal("entering temp dir:", err)
+	}
+	defer os.Chdir(origDir)
+	// -- END -- //
+
+	tree := &Node{
+		"testdata",
+		[]*Node{
+			{
+				"both",
+				[]*Node{
+					{
+						"main.go",
+						nil,
+						"main",
+						`
+package main
+
+import "testdata/both/a"
+`,
+					},
+					{
+						"a",
+						[]*Node{
+							{
+								"a.go",
+								nil,
+								"a",
+								`
+package a
+
+import (
+	"testdata/both/a/b"
+	aliasB "testdata/both/a/b"
+)
+
+func init() {
+	b.BFn()
+	aliasB.BFn()
+}
+
+func AFn() { }
+`,
+							},
+							{
+								"b",
+								[]*Node{
+									{
+										"b.go",
+										nil,
+										"b",
+										`
+package b
+
+import "testdata/both/c"
+
+func init() {
+	c.CFn()
+}
+
+func BFn() { }
+`,
+									},
+								},
+								"b",
+								"",
+							},
+						},
+						"a",
+						"",
+					},
+					{
+						"c",
+						[]*Node{
+							{
+								"c.go",
+								nil,
+								"c",
+								`
+package c
+
+import (
+	"testdata/both/a"
+	"testdata/both/a/b"
+)
+
+func init() {
+	a.AFn()
+	b.BFn()
+}
+
+func CFn() { }
+`,
+							},
+						},
+						"c",
+						"",
+					},
+				},
+				"both",
+				"",
+			},
+		},
+		"",
+		"",
+	}
+
+	makeTree(t, tree)
+
+	for _, treeNode := range tree.entries {
+		testCase := treeNode.name
+		dirOut := make(chan string)
+		depVis, nodeOut := internalAST.NewDependencyVisitor()
+		builder := internalAST.NewPrimitiveBuilder("", tmpDir)
+
+		expectedImportSpecs := []*internal.Import{
+			{
+				Name: "a",
+				Path: "testdata/both/a",
+			},
+			{
+				Name: "b",
+				Path: "testdata/both/a/b",
+			},
+			{
+				Name: "aliasB",
+				Path: "testdata/both/a/b",
+			},
+			{
+				Name: "c",
+				Path: "testdata/both/c",
+			},
+			{
+				Name: "a",
+				Path: "testdata/both/a",
+			},
+			{
+				Name: "b",
+				Path: "testdata/both/a/b",
+			},
+		}
+		directoryPathsInOrder := []string{}
+		walkTree(
+			treeNode,
+			treeNode.name,
+			func(path string, n *Node) {
+				if n.entries == nil {
+					return
+				}
+				directoryPathsInOrder = append(
+					directoryPathsInOrder,
+					tmpDir+string(filepath.Separator)+"testdata"+string(filepath.Separator)+path,
+				)
+			},
+		)
+
+		ctx, cancel := context.WithCancel(context.Background())
+
+		go func() {
+			for _, dirPath := range directoryPathsInOrder {
+				dirOut <- dirPath
+			}
+			close(dirOut)
+		}()
+
+		go func() {
+			for {
+				select {
+				case dirPath, ok := <-dirOut:
+					if !ok {
+						depVis.Close()
+						return
+					}
+					fset := token.NewFileSet()
+					pkgs, err := parser.ParseDir(fset, dirPath, nil, 0)
+					if err != nil {
+						cancel()
+						t.Fatalf("%s: %s", testCase, err)
+					}
+
+					for _, pkg := range pkgs {
+						ast.Walk(depVis, pkg)
+					}
+
+				case <-ctx.Done():
+					depVis.Close()
+					return
+				}
+			}
+		}()
+
+		go func() {
+			for {
+				select {
+				case astNode, ok := <-nodeOut:
+					if !ok {
+						cancel()
+						return
+					}
+					switch astNode := astNode.(type) {
+					case *internalAST.Package:
+						err = builder.AddNode(astNode)
+						if err != nil {
+							cancel()
+							t.Error(err)
+						}
+
+					case *internalAST.File:
+						err = builder.AddNode(astNode)
+						if err != nil {
+							cancel()
+							t.Error(err)
+						}
+
+					case *internalAST.ImportSpec:
+						err = builder.AddNode(astNode)
+						if err != nil {
+							cancel()
+							t.Error(err)
+						}
+
+					case *internalAST.FuncDecl:
+						err = builder.AddNode(astNode)
+						if err != nil {
+							cancel()
+							t.Error(err)
+						}
+
+					case *ast.GenDecl:
+						err = builder.AddNode(astNode)
+						if err != nil {
+							cancel()
+							t.Error(err)
+						}
+
+					case *internalAST.SelectorExpr:
+						err = builder.AddNode(astNode)
+						if err != nil {
+							cancel()
+							t.Error(err)
+						}
+					}
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+		<-ctx.Done()
+
+		for _, file := range builder.Files() {
+			if file.IsStub {
+				t.Errorf(
+					"%s: unexpected stub file: %s",
+					testCase,
+					file.AbsPath,
+				)
+				for _, decl := range file.Decls {
+					t.Errorf(
+						"%s: unexpected declaration in stub file: %s",
+						testCase,
+						decl.UID(),
+					)
+				}
+			}
+			for _, imp := range file.Imports {
+				if len(expectedImportSpecs) == 0 {
+					t.Errorf(
+						"%s: unexpected import: %s",
+						testCase,
+						imp.Name,
+					)
+				}
+
+				found := false
+				for i, expectedImp := range expectedImportSpecs {
+					if expectedImp.Name != imp.Name {
+						continue
+					}
+					if expectedImp.Path != imp.Path {
+						continue
+					}
+					found = true
+					expectedImportSpecs = append(expectedImportSpecs[:i], expectedImportSpecs[i+1:]...)
+					break
+				}
+				if !found {
+					t.Errorf(
+						"%s: unexpected import: %s",
+						testCase,
+						imp.Name,
+					)
+				}
+				for _, refDecl := range imp.ReferencedTypes {
+					if refDecl.File == nil {
+						t.Errorf(
+							"%s: referenced declaration without file assigned: %s",
+							testCase,
+							refDecl.UID(),
+						)
+						continue
+					}
+					if refDecl.File.IsStub {
+						t.Errorf(
+							"%s: %s: referenced declaration defined in stub: %s: %s",
+							testCase,
+							file.UID(),
+							refDecl.UID(),
+							refDecl.File.UID(),
+						)
+					}
 				}
 
 			}

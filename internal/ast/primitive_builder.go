@@ -124,6 +124,17 @@ func (builder *PrimitiveBuilder) addPackage(node *Package) error {
 	if pkgExists && pkg.IsStub {
 		// Does this work or do we need a full traversal?
 		copyPackage(pkg, newPkg)
+		for _, file := range pkg.Files {
+			if !file.IsStub {
+				continue
+			}
+			if len(file.Decls) > 0 {
+				continue
+			}
+			// remove stub files with no declarations
+			delete(pkg.Files, file.UID())
+			delete(builder.filesByUID, file.UID())
+		}
 	}
 
 	// totally new package
@@ -139,7 +150,6 @@ func (builder *PrimitiveBuilder) addFile(node *File) error {
 	if builder.curPkg == nil {
 		// return custom error, undefined package
 	}
-
 	file := &internal.File{
 		Package:  builder.packagesByUID[node.DirName],
 		FileName: filepath.Base(node.AbsPath),
@@ -151,6 +161,7 @@ func (builder *PrimitiveBuilder) addFile(node *File) error {
 	if _, ok := builder.filesByUID[fileUID]; ok {
 		// return custom error, duplicate file
 	}
+
 	pkgUID := builder.curPkg.UID()
 	builder.filesByUID[fileUID] = file
 	builder.packagesByUID[pkgUID].Files[fileUID] = builder.filesByUID[fileUID]
@@ -180,22 +191,12 @@ func (builder *PrimitiveBuilder) addImport(node *ImportSpec) error {
 	}
 
 	// if the package exists, use it, otherwise use a stub
-	pkg := buildPackage("", imp.Path, imp.Name, 1)
+	pkg := buildPackage(builder.moduleRootDirectory, imp.Path, imp.Name, 1)
 	pkg.IsStub = true
 	if _, ok := builder.packagesByUID[pkg.UID()]; ok {
 		pkg = builder.packagesByUID[pkg.UID()]
 	} else {
-		fileStub := &internal.File{
-			Package:  pkg,
-			FileName: "stub.go",
-			AbsPath: fmt.Sprintf(
-				"STUB://%s/stub.go",
-				pkg.UID(),
-			),
-			Imports: make(map[string]*internal.Import),
-			Decls:   make(map[string]*internal.Decl),
-			IsStub:  true,
-		}
+		fileStub := buildStubFile(pkg)
 		pkg.Files[fileStub.UID()] = fileStub
 		builder.filesByUID[fileStub.UID()] = fileStub
 		builder.packagesByUID[pkg.UID()] = pkg
@@ -221,6 +222,7 @@ func (builder *PrimitiveBuilder) addFuncDecl(node *FuncDecl) error {
 	if _, ok := builder.curFile.Decls[declUID]; ok {
 		// return custom error, duplicate decl
 	}
+	// TODO: receiver methods should never be received and should be skipped
 	var receiverDecl *internal.Decl
 	for _, file := range builder.curPkg.Files {
 		if _, ok := file.Decls[node.ReceiverName]; ok {
@@ -228,11 +230,14 @@ func (builder *PrimitiveBuilder) addFuncDecl(node *FuncDecl) error {
 			break
 		}
 	}
-	builder.curFile.Decls[declUID] = &internal.Decl{
+	decl := &internal.Decl{
 		File:         builder.curFile,
 		ReceiverDecl: receiverDecl,
 		Name:         node.Name.String(),
 	}
+	decl = builder.fixupStubDecl(decl)
+	builder.curFile.Decls[declUID] = decl
+
 	return nil
 }
 
@@ -260,6 +265,7 @@ func (builder *PrimitiveBuilder) addGenDecl(node *ast.GenDecl) error {
 				ReceiverDecl: nil,
 				Name:         spec.Name.String(),
 			}
+			decl = builder.fixupStubDecl(decl)
 			builder.curFile.Decls[decl.UID()] = decl
 
 		case *ast.ValueSpec:
@@ -278,6 +284,7 @@ func (builder *PrimitiveBuilder) addGenDecl(node *ast.GenDecl) error {
 					ReceiverDecl: nil,
 					Name:         name.String(),
 				}
+				decl = builder.fixupStubDecl(decl)
 				builder.curFile.Decls[decl.UID()] = decl
 			}
 
@@ -314,21 +321,36 @@ func (builder *PrimitiveBuilder) addSelectorExpr(node *SelectorExpr) error {
 		// return custom error, undefined package
 	}
 
-	// if the package is a stub, assign it to the stub file
-	if imp.Package.IsStub {
-		for _, file := range imp.Package.Files {
-			decl.File = file
+	// attempt to find file where declaration is defined
+	var foundDecl bool
+	var stubFile *internal.File
+	for _, file := range imp.Package.Files {
+		// track stub file,
+		if file.IsStub {
+			stubFile = file
+			continue
 		}
+		if !file.HasDecl(decl) {
+			continue
+		}
+		decl.File = file
+		foundDecl = true
+		break
 	}
 
-	// if the package is not a stub, find the declaration
-	if !imp.Package.IsStub {
-		for _, file := range imp.Package.Files {
-			if !file.HasDecl(decl) {
-				continue
-			}
-			decl.File = file
-			break
+	// if not file is found, attempt to add to a stub file
+	if !foundDecl {
+		if stubFile == nil {
+			// return custom error, import should have created stub file
+		}
+		stubDecl, isDeclInStub := stubFile.Decls[decl.UID()]
+		if isDeclInStub {
+			decl = stubDecl
+		}
+		if !isDeclInStub {
+			decl.File = stubFile
+			// add declaration to stub file
+			stubFile.Decls[decl.UID()] = decl
 		}
 	}
 
@@ -338,6 +360,35 @@ func (builder *PrimitiveBuilder) addSelectorExpr(node *SelectorExpr) error {
 
 	imp.ReferencedTypes[decl.Name] = decl
 	return nil
+}
+
+func (builder *PrimitiveBuilder) fixupStubDecl(newDecl *internal.Decl) *internal.Decl {
+	for fileUID, file := range builder.curPkg.Files {
+		// can only fix-up declarations in stub files
+		if !file.IsStub {
+			continue
+		}
+		for stubDeclUID, stubDecl := range file.Decls {
+			// can only fix-up the same declaration
+			if newDecl.UID() != stubDecl.UID() {
+				continue
+			}
+			// everything is already pointing at the stub declaration
+			// update stub declaration with values from the new declaration
+			copyDeclaration(stubDecl, newDecl)
+
+			// remove declaration from stub file
+			delete(file.Decls, stubDeclUID)
+
+			// if there are no more declarations in the stub file remove it
+			if len(file.Decls) == 0 {
+				delete(builder.curPkg.Files, fileUID)
+				delete(builder.filesByUID, fileUID)
+			}
+			return stubDecl
+		}
+	}
+	return newDecl
 }
 
 func buildPackage(
@@ -354,11 +405,37 @@ func buildPackage(
 	return pkg
 }
 
+func buildStubFile(pkg *internal.Package) *internal.File {
+	return &internal.File{
+		Package:  pkg,
+		FileName: "stub.go",
+		AbsPath: fmt.Sprintf(
+			"STUB://%s/stub.go",
+			pkg.UID(),
+		),
+		Imports: make(map[string]*internal.Import),
+		Decls:   make(map[string]*internal.Decl),
+		IsStub:  true,
+	}
+}
+
 func copyPackage(to, from *internal.Package) {
 	to.DirName = from.DirName
 	to.ModuleRoot = from.ModuleRoot
 	to.Name = from.Name
-	to.Files = from.Files
+	if from.Files != nil {
+		for uid, file := range from.Files {
+			to.Files[uid] = file
+		}
+	}
+	to.IsStub = from.IsStub
+	to.InImportCycle = from.InImportCycle
+}
+
+func copyDeclaration(to, from *internal.Decl) {
+	to.File = from.File
+	to.ReceiverDecl = from.ReceiverDecl
+	to.Name = from.Name
 }
 
 type fileStack []*internal.File
