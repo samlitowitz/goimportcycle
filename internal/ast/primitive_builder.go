@@ -31,12 +31,14 @@ func NewPrimitiveBuilder(modulePath, moduleRootDirectory string) *PrimitiveBuild
 }
 
 func (builder *PrimitiveBuilder) MarkupImportCycles() error {
-	var stk fileStack
+	stk := newFileStack()
 	for _, baseFile := range builder.filesByUID {
-		err := builder.markupImportCycles(baseFile, &stk)
+		stk.Push(baseFile)
+		err := builder.markupImportCycles(baseFile, stk)
 		if err != nil {
 			return err
 		}
+		stk.Pop()
 	}
 	return nil
 }
@@ -47,13 +49,15 @@ func (builder *PrimitiveBuilder) markupImportCycles(
 ) error {
 	for _, refFile := range baseFile.ReferencedFiles() {
 		// If you eventually import yourself, it's a cycle
-		if baseFile.UID() == refFile.UID() {
-			// Mark all files and their packages as part of the cycle
-			for _, fileToMark := range *stk {
-				fileToMark.InImportCycle = true
-				fileToMark.Package.InImportCycle = true
+		if stk.Contains(refFile) {
+			for i := len(stk.stack) - 1; i > 0; i-- {
+				curFile := stk.stack[i]
+				curFile.InImportCycle = true
+				curFile.Package.InImportCycle = true
+				if curFile.UID() == baseFile.UID() {
+					return nil
+				}
 			}
-			continue
 		}
 		stk.Push(refFile)
 		err := builder.markupImportCycles(refFile, stk)
@@ -151,7 +155,7 @@ func (builder *PrimitiveBuilder) addFile(node *File) error {
 		// return custom error, undefined package
 	}
 	file := &internal.File{
-		Package:  builder.packagesByUID[node.DirName],
+		Package:  builder.packagesByUID[builder.curPkg.UID()],
 		FileName: filepath.Base(node.AbsPath),
 		AbsPath:  node.AbsPath,
 		Imports:  make(map[string]*internal.Import),
@@ -438,23 +442,36 @@ func copyDeclaration(to, from *internal.Decl) {
 	to.Name = from.Name
 }
 
-type fileStack []*internal.File
+type fileStack struct {
+	indexByUID map[string]int
+	stack      []*internal.File
+}
 
-func (s *fileStack) Push(p *internal.File) {
-	*s = append(*s, p)
+func newFileStack() *fileStack {
+	return &fileStack{
+		indexByUID: make(map[string]int),
+		stack:      make([]*internal.File, 0),
+	}
+}
+
+func (s *fileStack) Push(f *internal.File) {
+	s.stack = append(s.stack, f)
+	s.indexByUID[f.UID()] = len(s.stack) - 1
 }
 
 func (s *fileStack) Pop() {
-	*s = (*s)[0 : len(*s)-1]
-}
-
-func (s *fileStack) Copy() []*internal.File {
-	return append([]*internal.File{}, *s...)
+	delete(s.indexByUID, s.stack[len(s.stack)-1].UID())
+	s.stack = s.stack[0 : len(s.stack)-1]
 }
 
 func (s *fileStack) Top() *internal.File {
-	if len(*s) == 0 {
+	if len(s.stack) == 0 {
 		return nil
 	}
-	return (*s)[len(*s)-1]
+	return s.stack[len(s.stack)-1]
+}
+
+func (s *fileStack) Contains(f *internal.File) bool {
+	_, ok := s.indexByUID[f.UID()]
+	return ok
 }
