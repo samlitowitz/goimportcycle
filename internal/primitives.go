@@ -41,10 +41,35 @@ func (pkg Package) ImportPath() string {
 }
 
 func (pkg Package) ModuleRelativePath() string {
-	return strings.TrimPrefix(
-		pkg.DirName,
-		pkg.ModuleRoot+string(filepath.Separator),
-	)
+	if strings.HasPrefix(pkg.DirName, pkg.ModuleRoot) {
+		path := strings.TrimPrefix(
+			pkg.DirName,
+			pkg.ModuleRoot,
+		)
+		path = strings.TrimPrefix(path, string(filepath.Separator))
+		if pkg.Name != "main" {
+			return path
+		}
+		if path == "" {
+			return pkg.Name
+		}
+		return path + ":" + pkg.Name
+	}
+	if strings.HasPrefix(pkg.DirName, pkg.ModulePath) {
+		path := strings.TrimPrefix(
+			pkg.DirName,
+			pkg.ModulePath,
+		)
+		path = strings.TrimPrefix(path, string(filepath.Separator))
+		if pkg.Name != "main" {
+			return path
+		}
+		if path == "" {
+			return pkg.Name
+		}
+		return path + ":" + pkg.Name
+	}
+	return pkg.Name
 }
 
 func (pkg Package) UID() string {
@@ -125,7 +150,8 @@ type Import struct {
 
 	ReferencedTypes map[string]*Decl
 
-	InImportCycle bool
+	InImportCycle          bool
+	ReferencedFilesInCycle map[string]*File
 }
 
 func (i Import) UID() string {

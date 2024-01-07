@@ -56,6 +56,7 @@ func (builder *PrimitiveBuilder) markupImportCycles(
 					curFile.InImportCycle = true
 					curFile.Package.InImportCycle = true
 					imp.InImportCycle = true
+					imp.ReferencedFilesInCycle[refFile.UID()] = refFile
 					if curFile.UID() == baseFile.UID() {
 						return nil
 					}
@@ -205,9 +206,10 @@ func (builder *PrimitiveBuilder) addImport(node *ImportSpec) error {
 		// return custom error, undefined file
 	}
 	imp := &internal.Import{
-		Name:            node.Name.String(),
-		Path:            node.Path.Value,
-		ReferencedTypes: make(map[string]*internal.Decl),
+		Name:                   node.Name.String(),
+		Path:                   node.Path.Value,
+		ReferencedTypes:        make(map[string]*internal.Decl),
+		ReferencedFilesInCycle: make(map[string]*internal.File),
 	}
 	if node.IsAliased {
 		imp.Name = node.Alias

@@ -73,5 +73,39 @@ func writeNodeDefsForFileResolution(buf *bytes.Buffer, cfg *config.Config, pkgs 
 }
 
 func writeRelationshipsForFileResolution(buf *bytes.Buffer, cfg *config.Config, pkgs []*internal.Package) {
+	edgeDef := `
+	%s -> %s [color="%s"];`
 
+	for _, pkg := range pkgs {
+		if pkg.IsStub {
+			continue
+		}
+		for _, file := range pkg.Files {
+			if file.IsStub {
+				continue
+			}
+			for _, imp := range file.Imports {
+				if imp.Package == nil {
+					continue
+				}
+				if imp.Package.IsStub {
+					continue
+				}
+				for _, refTyp := range imp.ReferencedTypes {
+					arrowColor := cfg.Palette.Base.ImportArrow
+					if _, ok := imp.ReferencedFilesInCycle[refTyp.File.UID()]; ok {
+						arrowColor = cfg.Palette.Cycle.ImportArrow
+					}
+					buf.WriteString(
+						fmt.Sprintf(
+							edgeDef,
+							fileNodeName(file),
+							fileNodeName(refTyp.File),
+							arrowColor.Hex(),
+						),
+					)
+				}
+			}
+		}
+	}
 }
