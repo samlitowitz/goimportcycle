@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 )
@@ -22,10 +23,21 @@ func (pkg Package) ImportPath() string {
 	if pkg.Name == "main" {
 		return ""
 	}
-	return pkg.ModulePath + string(filepath.Separator) + strings.TrimPrefix(
-		pkg.DirName,
-		pkg.ModuleRoot+string(filepath.Separator),
-	)
+	if strings.HasPrefix(pkg.DirName, pkg.ModuleRoot) {
+		return fmt.Sprintf(
+			"%s/%s",
+			pkg.ModulePath,
+			strings.TrimPrefix(
+				pkg.DirName,
+				pkg.ModuleRoot+string(filepath.Separator),
+			),
+		)
+	}
+	if strings.HasPrefix(pkg.DirName, pkg.ModulePath) {
+		return pkg.DirName
+	}
+
+	return pkg.Name
 }
 
 func (pkg Package) ModuleRelativePath() string {
@@ -112,6 +124,8 @@ type Import struct {
 	Path string
 
 	ReferencedTypes map[string]*Decl
+
+	InImportCycle bool
 }
 
 func (i Import) UID() string {

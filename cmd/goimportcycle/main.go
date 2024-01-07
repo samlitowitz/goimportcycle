@@ -156,6 +156,21 @@ func main() {
 	cfg.Debug.Printf("Module Path: %s", modulePath)
 	cfg.Debug.Printf("Module Root Directory: %s", moduleRootDir)
 
+	switch resolution {
+	case "file":
+		cfg.Resolution = config.FileResolution
+		if err != nil {
+			log.Fatal(err)
+		}
+	case "package":
+		cfg.Resolution = config.PackageResolution
+		if err != nil {
+			log.Fatal(err)
+		}
+	default:
+		log.Fatal("resolution must be 'file' or 'package'")
+	}
+
 	builder := internalAST.NewPrimitiveBuilder(modulePath, moduleRootDir)
 	ctx, cancel := context.WithCancel(context.Background())
 	errChan := make(chan error)
@@ -178,21 +193,6 @@ func main() {
 	close(errChan)
 	if err != nil {
 		log.Fatal(err)
-	}
-
-	switch resolution {
-	case "file":
-		cfg.Resolution = config.FileResolution
-		if err != nil {
-			log.Fatal(err)
-		}
-	case "package":
-		cfg.Resolution = config.PackageResolution
-		if err != nil {
-			log.Fatal(err)
-		}
-	default:
-		log.Fatal("resolution must be 'file' or 'package'")
 	}
 
 	output, err := dot.Marshal(cfg, modulePath, builder.Packages())

@@ -47,6 +47,28 @@ func (builder *PrimitiveBuilder) markupImportCycles(
 	baseFile *internal.File,
 	stk *FileStack,
 ) error {
+	for _, imp := range baseFile.Imports {
+		for _, typ := range imp.ReferencedTypes {
+			refFile := typ.File
+			if stk.Contains(refFile) {
+				for i := stk.Len() - 1; i > 0; i-- {
+					curFile := stk.At(i)
+					curFile.InImportCycle = true
+					curFile.Package.InImportCycle = true
+					imp.InImportCycle = true
+					if curFile.UID() == baseFile.UID() {
+						return nil
+					}
+				}
+			}
+			stk.Push(refFile)
+			err := builder.markupImportCycles(refFile, stk)
+			if err != nil {
+				return err
+			}
+			stk.Pop()
+		}
+	}
 	for _, refFile := range baseFile.ReferencedFiles() {
 		// If you eventually import yourself, it's a cycle
 		if stk.Contains(refFile) {

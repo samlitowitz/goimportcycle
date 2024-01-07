@@ -17,8 +17,10 @@ func Marshal(cfg *config.Config, modulePath string, pkgs []*internal.Package) ([
 	switch cfg.Resolution {
 	case config.FileResolution:
 		writeNodeDefsForFileResolution(buf, cfg, pkgs)
+		writeRelationshipsForFileResolution(buf, cfg, pkgs)
 	case config.PackageResolution:
 		writeNodeDefsForPackageResolution(buf, cfg, pkgs)
+		writeRelationshipsForPackageResolution(buf, cfg, pkgs)
 	}
 	writeFooter(buf)
 

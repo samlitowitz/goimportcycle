@@ -71,3 +71,7 @@ func writeNodeDefsForFileResolution(buf *bytes.Buffer, cfg *config.Config, pkgs 
 		buf.WriteString(clusterDefFooter)
 	}
 }
+
+func writeRelationshipsForFileResolution(buf *bytes.Buffer, cfg *config.Config, pkgs []*internal.Package) {
+
+}

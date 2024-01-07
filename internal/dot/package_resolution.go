@@ -37,3 +37,39 @@ func writeNodeDefsForPackageResolution(buf *bytes.Buffer, cfg *config.Config, pk
 		)
 	}
 }
+
+func writeRelationshipsForPackageResolution(buf *bytes.Buffer, cfg *config.Config, pkgs []*internal.Package) {
+	edgeDef := `
+	%s -> %s [color="%s"];`
+
+	for _, pkg := range pkgs {
+		if pkg.IsStub {
+			continue
+		}
+		for _, file := range pkg.Files {
+			if file.IsStub {
+				continue
+			}
+			for _, imp := range file.Imports {
+				if imp.Package == nil {
+					continue
+				}
+				if imp.Package.IsStub {
+					continue
+				}
+				arrowColor := cfg.Palette.Base.ImportArrow
+				if imp.InImportCycle {
+					arrowColor = cfg.Palette.Cycle.ImportArrow
+				}
+				buf.WriteString(
+					fmt.Sprintf(
+						edgeDef,
+						pkgNodeName(pkg),
+						pkgNodeName(imp.Package),
+						arrowColor.Hex(),
+					),
+				)
+			}
+		}
+	}
+}
