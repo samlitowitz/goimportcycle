@@ -122,8 +122,6 @@ func detectInputCycles(
 }
 
 func main() {
-	// TODO: log verbosity
-	// TODO: option to show in cycle only
 	var dotFile, path, resolution string
 	var debug bool
 	flag.StringVar(&dotFile, "dot", "", "DOT file for output")
