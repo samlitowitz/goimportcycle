@@ -8,6 +8,7 @@ import (
 type Package struct {
 	DirName string
 
+	ModulePath string
 	ModuleRoot string
 	Name       string
 
@@ -21,6 +22,13 @@ func (pkg Package) ImportPath() string {
 	if pkg.Name == "main" {
 		return ""
 	}
+	return pkg.ModulePath + string(filepath.Separator) + strings.TrimPrefix(
+		pkg.DirName,
+		pkg.ModuleRoot+string(filepath.Separator),
+	)
+}
+
+func (pkg Package) ModuleRelativePath() string {
 	return strings.TrimPrefix(
 		pkg.DirName,
 		pkg.ModuleRoot+string(filepath.Separator),

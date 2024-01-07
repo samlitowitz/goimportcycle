@@ -8,8 +8,13 @@ import (
 	"go/token"
 	"io/fs"
 	"log"
+	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/samlitowitz/goimportcycle/internal/config"
+
+	"github.com/samlitowitz/goimportcycle/internal/dot"
 
 	internalAST "github.com/samlitowitz/goimportcycle/internal/ast"
 
@@ -120,24 +125,36 @@ func main() {
 	// TODO: log verbosity
 	// TODO: option to show in cycle only
 	var dotFile, path, resolution string
+	var debug bool
 	flag.StringVar(&dotFile, "dot", "", "DOT file for output")
 	flag.StringVar(&path, "path", "./", "Files to process")
 	flag.StringVar(&resolution, "resolution", "file", "Resolution, 'file' or 'package'")
+	flag.BoolVar(&debug, "debug", false, "Emit debug output")
 	flag.Parse()
+
+	cfg := config.Default()
+	if debug {
+		cfg.Debug.SetOutput(os.Stdout)
+	}
 
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	goModFile, err := modfile.FindGoModFile(absPath)
 	if err != nil {
 		log.Fatal(err)
 	}
+	cfg.Debug.Printf("go.mod file: %s", goModFile)
+
 	modulePath, err := modfile.GetModulePath(goModFile)
 	if err != nil {
 		log.Fatal(err)
 	}
 	moduleRootDir := filepath.Dir(goModFile)
+	cfg.Debug.Printf("Module Path: %s", modulePath)
+	cfg.Debug.Printf("Module Root Directory: %s", moduleRootDir)
 
 	builder := internalAST.NewPrimitiveBuilder(modulePath, moduleRootDir)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -158,8 +175,40 @@ func main() {
 	dirOut := walkDirectories(moduleRootDir, errChan)
 	nodeOut := parseFiles(dirOut, errChan, ctx.Done())
 	err = detectInputCycles(builder, cancel, nodeOut, errChan, ctx.Done())
+	close(errChan)
 	if err != nil {
-		errChan <- err
+		log.Fatal(err)
+	}
+
+	switch resolution {
+	case "file":
+		cfg.Resolution = config.FileResolution
+		if err != nil {
+			log.Fatal(err)
+		}
+	case "package":
+		cfg.Resolution = config.PackageResolution
+		if err != nil {
+			log.Fatal(err)
+		}
+	default:
+		log.Fatal("resolution must be 'file' or 'package'")
+	}
+
+	output, err := dot.Marshal(cfg, modulePath, builder.Packages())
+	if err != nil {
+		log.Fatal(err)
+	}
+	if dotFile == "" {
+		_, err := os.Stdout.Write(output)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
+	err = os.WriteFile(dotFile, output, 0644)
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	//v := tmp.NewVisitor(modulePath)

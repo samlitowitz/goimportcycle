@@ -1,0 +1,8 @@
+
+digraph {
+	labelloc="t";
+	label="github.com/samlitowitz/goimportcycle/examples/multiple-interlinked";
+	rankdir="TB";
+	node [shape="rect"];
+
+}

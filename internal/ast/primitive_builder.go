@@ -111,6 +111,7 @@ func (builder *PrimitiveBuilder) Packages() []*internal.Package {
 
 func (builder *PrimitiveBuilder) addPackage(node *Package) error {
 	newPkg := buildPackage(
+		builder.modulePath,
 		builder.moduleRootDir,
 		node.DirName,
 		node.Name,
@@ -195,7 +196,7 @@ func (builder *PrimitiveBuilder) addImport(node *ImportSpec) error {
 	}
 
 	// if the package exists, use it, otherwise use a stub
-	pkg := buildPackage(builder.moduleRootDir, imp.Path, imp.Name, 1)
+	pkg := buildPackage(builder.modulePath, builder.moduleRootDir, imp.Path, imp.Name, 1)
 	pkg.IsStub = true
 	if _, ok := builder.packagesByUID[pkg.UID()]; ok {
 		pkg = builder.packagesByUID[pkg.UID()]
@@ -396,12 +397,14 @@ func (builder *PrimitiveBuilder) fixupStubDecl(newDecl *internal.Decl) *internal
 }
 
 func buildPackage(
+	modulePath,
 	moduleRootDir,
 	dirName, name string,
 	fileCount int,
 ) *internal.Package {
 	pkg := &internal.Package{
 		DirName:    dirName,
+		ModulePath: modulePath,
 		ModuleRoot: moduleRootDir,
 		Name:       name,
 		Files:      make(map[string]*internal.File, fileCount),

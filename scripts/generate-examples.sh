@@ -3,14 +3,29 @@
 BASE_DIR="$(pwd)"
 ASSETS=$BASE_DIR/assets
 EXAMPLE_ASSETS=$ASSETS/examples
+EXAMPLES_DIR=$BASE_DIR/examples
 
 echo "Remove existing example outputs"
-rm -f $EXAMPLE_ASSETS/*
+rm -rf $EXAMPLE_ASSETS/*
 
 echo "Generate example outputs"
 
-goimportcycle -path $BASE_DIR/examples/importcycle/ -resolution file -dot $EXAMPLE_ASSETS/file.dot
-dot -Tpng -o $EXAMPLE_ASSETS/file.png $EXAMPLE_ASSETS/file.dot
+for d in $EXAMPLES_DIR/*/ ; do
+    [ -L "${d%/}" ] && continue
 
-goimportcycle -path $BASE_DIR/examples/importcycle/ -resolution package -dot $EXAMPLE_ASSETS/package.dot
-dot -Tpng -o $EXAMPLE_ASSETS/package.png $EXAMPLE_ASSETS/package.dot
+    outputDir="$EXAMPLE_ASSETS/$(basename $d)"
+
+    if [ ! -d "$outputDir" ]; then
+      mkdir -p "$outputDir"
+    fi
+
+    echo "Processing $d"
+
+    echo "File Resolution"
+    goimportcycle -debug -path $d -resolution file -dot $outputDir/file.dot
+    dot -Tpng -o $outputDir/file.png $outputDir/file.dot
+
+    echo "Package Resolution"
+    goimportcycle -debug -path $d -resolution package -dot $outputDir/package.dot
+    dot -Tpng -o $outputDir/package.png $outputDir/package.dot
+done
