@@ -5,8 +5,11 @@ digraph {
 	rankdir="TB";
 	node [shape="rect"];
 
-	pkg_b [label="b", style="filled", fontcolor="#000000", fillcolor="#ffffff"];
 	pkg_c [label="c", style="filled", fontcolor="#000000", fillcolor="#ffffff"];
 	pkg_main [label="/home/sglitowitz/lab/src/github.com/samlitowitz/goimportcycle/examples/none", style="filled", fontcolor="#000000", fillcolor="#ffffff"];
 	pkg_a [label="a", style="filled", fontcolor="#000000", fillcolor="#ffffff"];
+	pkg_b [label="b", style="filled", fontcolor="#000000", fillcolor="#ffffff"];
+	pkg_c -> pkg_b [color="#000000"];
+	pkg_main -> pkg_a [color="#000000"];
+	pkg_b -> pkg_a [color="#000000"];
 }

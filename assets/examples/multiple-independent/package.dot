@@ -1,8 +1,0 @@
-
-digraph {
-	labelloc="t";
-	label="github.com/samlitowitz/goimportcycle/examples/multiple-independent";
-	rankdir="TB";
-	node [shape="rect"];
-
-}

@@ -1,12 +1,12 @@
 
 digraph {
 	labelloc="t";
-	label="github.com/samlitowitz/goimportcycle/examples/simple";
+	label="github.com/samlitowitz/goimportcycle/examples/independent";
 	rankdir="TB";
 	node [shape="rect"];
 
 	subgraph cluster_pkg_main {
-		label="/home/sglitowitz/lab/src/github.com/samlitowitz/goimportcycle/examples/simple";
+		label="/home/sglitowitz/lab/src/github.com/samlitowitz/goimportcycle/examples/independent";
 		style="filled";
 		fontcolor="#000000";
 		fillcolor="#ffffff";
@@ -30,6 +30,15 @@ digraph {
 		fillcolor="#ffffff";
 
 		pkg_b_file_b [label="b.go", style="filled", fontcolor="#ff0000", fillcolor="#ffffff"];
+	};
+
+	subgraph cluster_pkg_c {
+		label="c";
+		style="filled";
+		fontcolor="#ff0000";
+		fillcolor="#ffffff";
+
+		pkg_c_file_c [label="c.go", style="filled", fontcolor="#ff0000", fillcolor="#ffffff"];
 	};
 
 }
