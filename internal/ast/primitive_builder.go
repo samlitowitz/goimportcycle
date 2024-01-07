@@ -10,8 +10,8 @@ import (
 )
 
 type PrimitiveBuilder struct {
-	modulePath          string
-	moduleRootDirectory string
+	modulePath    string
+	moduleRootDir string
 
 	packagesByUID map[string]*internal.Package
 	filesByUID    map[string]*internal.File
@@ -20,10 +20,10 @@ type PrimitiveBuilder struct {
 	curFile *internal.File
 }
 
-func NewPrimitiveBuilder(modulePath, moduleRootDirectory string) *PrimitiveBuilder {
+func NewPrimitiveBuilder(modulePath, moduleRootDir string) *PrimitiveBuilder {
 	return &PrimitiveBuilder{
-		modulePath:          modulePath,
-		moduleRootDirectory: moduleRootDirectory,
+		modulePath:    modulePath,
+		moduleRootDir: moduleRootDir,
 
 		packagesByUID: make(map[string]*internal.Package),
 		filesByUID:    make(map[string]*internal.File),
@@ -111,7 +111,7 @@ func (builder *PrimitiveBuilder) Packages() []*internal.Package {
 
 func (builder *PrimitiveBuilder) addPackage(node *Package) error {
 	newPkg := buildPackage(
-		builder.moduleRootDirectory,
+		builder.moduleRootDir,
 		node.DirName,
 		node.Name,
 		len(node.Files),
@@ -195,7 +195,7 @@ func (builder *PrimitiveBuilder) addImport(node *ImportSpec) error {
 	}
 
 	// if the package exists, use it, otherwise use a stub
-	pkg := buildPackage(builder.moduleRootDirectory, imp.Path, imp.Name, 1)
+	pkg := buildPackage(builder.moduleRootDir, imp.Path, imp.Name, 1)
 	pkg.IsStub = true
 	if _, ok := builder.packagesByUID[pkg.UID()]; ok {
 		pkg = builder.packagesByUID[pkg.UID()]
