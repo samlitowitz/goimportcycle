@@ -1,23 +1,22 @@
 package internal
 
-import "image/color"
-
-var (
-	True = &Config{
-		Line:             Color{&color.RGBA{R: 0, G: 0, B: 0, A: 1}},
-		PackageFill:      Color{&color.RGBA{R: 255, G: 255, B: 255, A: 1}},
-		FileFill:         Color{&color.RGBA{R: 255, G: 255, B: 255, A: 1}},
-		CycleLine:        Color{&color.RGBA{R: 220, G: 38, B: 127, A: 1}},
-		CyclePackageFill: Color{&color.RGBA{R: 255, G: 176, B: 0, A: 1}},
-		CycleFileFill:    Color{&color.RGBA{R: 220, G: 38, B: 127, A: 1}},
-	}
-)
-
 type Config struct {
-	Line             Color
-	PackageFill      Color
-	FileFill         Color
-	CycleLine        Color
-	CyclePackageFill Color
-	CycleFileFill    Color
+	Palette *Palette
 }
+
+//# File Resolution
+//1. package name
+//1. package background
+//1. file name
+//1. file background
+//1. import arrow
+//
+//1. not in cycle/in cycle
+//
+//
+//# Package Resolution
+//1. package name
+//1. package background
+//1. import arrow
+//
+//1. not in cycle/in cycle
