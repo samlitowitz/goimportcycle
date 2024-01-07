@@ -5,7 +5,7 @@ ASSETS=$BASE_DIR/assets
 EXAMPLE_ASSETS=$ASSETS/examples
 
 echo "Remove existing example outputs"
-rm $EXAMPLE_ASSETS/*
+rm -f $EXAMPLE_ASSETS/*
 
 echo "Generate example outputs"
 

@@ -4,7 +4,7 @@ build:
 	go build -o ${GOPATH}/bin/goimportcycle cmd/goimportcycle/main.go
 
 examples: build
-	./scripts/examples.sh
+	./scripts/generate-examples.sh
 
 clean:
-	rm ${GOPATH}/bin/goimportcycle
+	rm -f ${GOPATH}/bin/goimportcycle
