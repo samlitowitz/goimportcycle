@@ -5,24 +5,6 @@ digraph {
 	rankdir="TB";
 	node [shape="rect"];
 
-	subgraph cluster_pkg_b {
-		label="b";
-		style="filled";
-		fontcolor="#ff0000";
-		fillcolor="#ffffff";
-
-		pkg_b_file_b [label="b.go", style="filled", fontcolor="#ff0000", fillcolor="#ffffff"];
-	};
-
-	subgraph cluster_pkg_c {
-		label="c";
-		style="filled";
-		fontcolor="#ff0000";
-		fillcolor="#ffffff";
-
-		pkg_c_file_c [label="c.go", style="filled", fontcolor="#ff0000", fillcolor="#ffffff"];
-	};
-
 	subgraph cluster_pkg_main {
 		label="main";
 		style="filled";
@@ -41,9 +23,27 @@ digraph {
 		pkg_a_file_a [label="a.go", style="filled", fontcolor="#ff0000", fillcolor="#ffffff"];
 	};
 
-	pkg_b_file_b -> pkg_a_file_a [color="#ff0000"];
-	pkg_b_file_b -> pkg_c_file_c [color="#ff0000"];
-	pkg_c_file_c -> pkg_b_file_b [color="#ff0000"];
+	subgraph cluster_pkg_b {
+		label="b";
+		style="filled";
+		fontcolor="#ff0000";
+		fillcolor="#ffffff";
+
+		pkg_b_file_b [label="b.go", style="filled", fontcolor="#ff0000", fillcolor="#ffffff"];
+	};
+
+	subgraph cluster_pkg_c {
+		label="c";
+		style="filled";
+		fontcolor="#ff0000";
+		fillcolor="#ffffff";
+
+		pkg_c_file_c [label="c.go", style="filled", fontcolor="#ff0000", fillcolor="#ffffff"];
+	};
+
 	pkg_main_file_main -> pkg_a_file_a [color="#000000"];
 	pkg_a_file_a -> pkg_b_file_b [color="#ff0000"];
+	pkg_b_file_b -> pkg_c_file_c [color="#ff0000"];
+	pkg_b_file_b -> pkg_a_file_a [color="#ff0000"];
+	pkg_c_file_c -> pkg_b_file_b [color="#ff0000"];
 }

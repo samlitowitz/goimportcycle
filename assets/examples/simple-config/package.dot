@@ -5,10 +5,10 @@ digraph {
 	rankdir="TB";
 	node [shape="rect"];
 
-	pkg_main [label="main", style="filled", fontcolor="#000000", fillcolor="#ffffff"];
-	pkg_a [label="a", style="filled", fontcolor="#ff0000", fillcolor="#ffffff"];
-	pkg_b [label="b", style="filled", fontcolor="#ff0000", fillcolor="#ffffff"];
-	pkg_main -> pkg_a [color="#000000"];
-	pkg_a -> pkg_b [color="#ff0000"];
-	pkg_b -> pkg_a [color="#ff0000"];
+	pkg_b [label="b", style="filled", fontcolor="#ffb3c6", fillcolor="#ffe5ec"];
+	pkg_main [label="main", style="filled", fontcolor="#aed1e6", fillcolor="#cfe8ef"];
+	pkg_a [label="a", style="filled", fontcolor="#ffb3c6", fillcolor="#ffe5ec"];
+	pkg_b -> pkg_a [color="#fb6f92"];
+	pkg_main -> pkg_a [color="#85c7de"];
+	pkg_a -> pkg_b [color="#fb6f92"];
 }
