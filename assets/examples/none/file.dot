@@ -5,15 +5,6 @@ digraph {
 	rankdir="TB";
 	node [shape="rect"];
 
-	subgraph cluster_pkg_a {
-		label="a";
-		style="filled";
-		fontcolor="#000000";
-		fillcolor="#ffffff";
-
-		pkg_a_file_a [label="a.go", style="filled", fontcolor="#000000", fillcolor="#ffffff"];
-	};
-
 	subgraph cluster_pkg_b {
 		label="b";
 		style="filled";
@@ -39,6 +30,15 @@ digraph {
 		fillcolor="#ffffff";
 
 		pkg_main_file_main [label="main.go", style="filled", fontcolor="#000000", fillcolor="#ffffff"];
+	};
+
+	subgraph cluster_pkg_a {
+		label="a";
+		style="filled";
+		fontcolor="#000000";
+		fillcolor="#ffffff";
+
+		pkg_a_file_a [label="a.go", style="filled", fontcolor="#000000", fillcolor="#ffffff"];
 	};
 
 	pkg_b_file_b -> pkg_a_file_a [color="#000000"];

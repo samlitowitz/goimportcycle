@@ -19,13 +19,18 @@ for d in $EXAMPLES_DIR/*/ ; do
       mkdir -p "$outputDir"
     fi
 
+    cfg=""
+    if [ -f "$d/config.yaml" ]; then
+      cfg="-config $d/config.yaml"
+    fi
+
     echo "Processing $d"
 
     echo "File Resolution"
-    goimportcycle -debug -path $d -resolution file -dot $outputDir/file.dot
+    goimportcycle -debug $cfg -path $d -resolution file -dot $outputDir/file.dot
     dot -Tpng -o $outputDir/file.png $outputDir/file.dot
 
     echo "Package Resolution"
-    goimportcycle -debug -path $d -resolution package -dot $outputDir/package.dot
+    goimportcycle -debug $cfg -path $d -resolution package -dot $outputDir/package.dot
     dot -Tpng -o $outputDir/package.png $outputDir/package.dot
 done

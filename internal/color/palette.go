@@ -21,7 +21,7 @@ var (
 	Default = &Palette{
 		Base: &HalfPalette{
 			PackageName: Color{
-				RGBA: &color.RGBA{
+				Color: &color.RGBA{
 					R: 0,
 					G: 0,
 					B: 0,
@@ -29,7 +29,7 @@ var (
 				},
 			},
 			PackageBackground: Color{
-				RGBA: &color.RGBA{
+				Color: &color.RGBA{
 					R: 255,
 					G: 255,
 					B: 255,
@@ -37,7 +37,7 @@ var (
 				},
 			},
 			FileName: Color{
-				RGBA: &color.RGBA{
+				Color: &color.RGBA{
 					R: 0,
 					G: 0,
 					B: 0,
@@ -45,7 +45,7 @@ var (
 				},
 			},
 			FileBackground: Color{
-				RGBA: &color.RGBA{
+				Color: &color.RGBA{
 					R: 255,
 					G: 255,
 					B: 255,
@@ -53,7 +53,7 @@ var (
 				},
 			},
 			ImportArrow: Color{
-				RGBA: &color.RGBA{
+				Color: &color.RGBA{
 					R: 0,
 					G: 0,
 					B: 0,
@@ -63,7 +63,7 @@ var (
 		},
 		Cycle: &HalfPalette{
 			PackageName: Color{
-				RGBA: &color.RGBA{
+				Color: &color.RGBA{
 					R: 255,
 					G: 0,
 					B: 0,
@@ -71,7 +71,7 @@ var (
 				},
 			},
 			PackageBackground: Color{
-				RGBA: &color.RGBA{
+				Color: &color.RGBA{
 					R: 255,
 					G: 255,
 					B: 255,
@@ -79,7 +79,7 @@ var (
 				},
 			},
 			FileName: Color{
-				RGBA: &color.RGBA{
+				Color: &color.RGBA{
 					R: 255,
 					G: 0,
 					B: 0,
@@ -87,7 +87,7 @@ var (
 				},
 			},
 			FileBackground: Color{
-				RGBA: &color.RGBA{
+				Color: &color.RGBA{
 					R: 255,
 					G: 255,
 					B: 255,
@@ -95,7 +95,7 @@ var (
 				},
 			},
 			ImportArrow: Color{
-				RGBA: &color.RGBA{
+				Color: &color.RGBA{
 					R: 255,
 					G: 0,
 					B: 0,

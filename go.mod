@@ -3,8 +3,8 @@ module github.com/samlitowitz/goimportcycle
 go 1.18
 
 require (
-	golang.org/x/mod v0.5.1
-	gonum.org/v1/gonum v0.11.0
+	golang.org/x/mod v0.14.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
-require golang.org/x/xerrors v0.0.0-20220609144429-65e65417b02f // indirect
+require github.com/go-playground/colors v1.3.1

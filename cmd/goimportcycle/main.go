@@ -122,15 +122,27 @@ func detectInputCycles(
 }
 
 func main() {
-	var dotFile, path, resolution string
+	var configFile, dotFile, path, resolution string
 	var debug bool
+	flag.StringVar(&configFile, "config", "", "Config file")
 	flag.StringVar(&dotFile, "dot", "", "DOT file for output")
 	flag.StringVar(&path, "path", "./", "Files to process")
 	flag.StringVar(&resolution, "resolution", "file", "Resolution, 'file' or 'package'")
 	flag.BoolVar(&debug, "debug", false, "Emit debug output")
 	flag.Parse()
 
+	var err error
 	cfg := config.Default()
+	if configFile != "" {
+		cfg, err = config.FromYamlFile(configFile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if cfg == nil {
+			cfg = config.Default()
+		}
+	}
+
 	if debug {
 		cfg.Debug.SetOutput(os.Stdout)
 	}

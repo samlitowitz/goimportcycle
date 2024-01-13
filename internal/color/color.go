@@ -6,9 +6,13 @@ import (
 )
 
 type Color struct {
-	*color.RGBA
+	color.Color
 }
 
 func (c Color) Hex() string {
-	return fmt.Sprintf("#%02x%02x%02x", c.R, c.G, c.B)
+	r, g, b, _ := c.Color.RGBA()
+	r = r >> 8
+	g = g >> 8
+	b = b >> 8
+	return fmt.Sprintf("#%02x%02x%02x", r, g, b)
 }
