@@ -47,6 +47,56 @@ func TestFromYamlFile_Empty(t *testing.T) {
 
 // from partial yaml
 // from entire yaml
+func TestFromYamlFile_Entire(t *testing.T) {
+	// REFURL: https://github.com/golang/go/blob/988b718f4130ab5b3ce5a5774e1a58e83c92a163/src/path/filepath/path_test.go#L600
+	// -- START -- //
+	if runtime.GOOS == "ios" {
+		restore := chtmpdir(t)
+		defer restore()
+	}
+
+	tmpDir := t.TempDir()
+
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal("finding working dir:", err)
+	}
+	if err = os.Chdir(tmpDir); err != nil {
+		t.Fatal("entering temp dir:", err)
+	}
+	defer os.Chdir(origDir)
+	// -- END -- //
+
+	configPath := tmpDir + string(os.PathSeparator) + "config.yaml"
+	configData := `
+resolution: "file"
+palette:
+  base:
+    packageName: "rgb(174, 209, 230)"
+    packageBackground: "rgb(207, 232, 239)"
+    fileName: "rgb(160, 196, 226)"
+    fileBackground: "rgb(198, 219, 240)"
+    importArrow: "rgb(133, 199, 222)"
+  cycle:
+    packageName: "#FFB3C6"
+    packageBackground: "#FFE5EC"
+    fileName: "#FF8FAB"
+    fileBackground: "#FFC2D1"
+    importArrow: "#FB6F92"
+`
+	writeConfig(t, configPath, configData)
+	cfg, err := config.FromYamlFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg == nil {
+		t.Fatal("no config created")
+	}
+	expected := config.Default()
+
+	compareHalfPalette(t, expected.Palette.Base, cfg.Palette.Base)
+	compareHalfPalette(t, expected.Palette.Cycle, cfg.Palette.Cycle)
+}
 
 func compareHalfPalette(t *testing.T, expected, actual *color.HalfPalette) {
 	if expected.PackageName.Hex() != actual.PackageName.Hex() {

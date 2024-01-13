@@ -26,7 +26,7 @@ type Config struct {
 	Debug      *log.Logger
 }
 
-type externalPalette struct {
+type ExternalPalette struct {
 	PackageName       string `yaml:"packageName,omitempty"`
 	PackageBackground string `yaml:"packageBackground,omitempty"`
 	FileName          string `yaml:"fileName,omitempty"`
@@ -37,8 +37,8 @@ type externalPalette struct {
 type externalConfig struct {
 	Resolution string `yaml:"resolution,omitempty"`
 	Palette    *struct {
-		Base  *externalPalette `yaml:"base,omitempty"`
-		Cycle *externalPalette `yaml:"cycle,omitempty"`
+		Base  *ExternalPalette `yaml:"base,omitempty"`
+		Cycle *ExternalPalette `yaml:"cycle,omitempty"`
 	} `yaml:"palette,omitempty"`
 }
 
@@ -58,9 +58,9 @@ func FromYamlFile(filepath string) (*Config, error) {
 	}
 	defer f.Close()
 
-	var ecfg *externalConfig
+	var ecfg externalConfig
 	decoder := yaml.NewDecoder(f)
-	err = decoder.Decode(ecfg)
+	err = decoder.Decode(&ecfg)
 	if err == io.EOF {
 		return Default(), nil
 	}
@@ -68,7 +68,7 @@ func FromYamlFile(filepath string) (*Config, error) {
 		return nil, err
 	}
 	cfg := Default()
-	err = fromExternalConfig(cfg, ecfg)
+	err = fromExternalConfig(cfg, &ecfg)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func fromExternalConfig(to *Config, from *externalConfig) error {
 	return nil
 }
 
-func fromExternalPalette(to *inColor.HalfPalette, from *externalPalette) error {
+func fromExternalPalette(to *inColor.HalfPalette, from *ExternalPalette) error {
 	if from == nil {
 		return nil
 	}
