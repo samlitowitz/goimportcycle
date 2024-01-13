@@ -1,0 +1,29 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://example.com/goimportcycle/half-palette.schema.json",
+	"title": "Config",
+	"description": "Half-palette definition for Go Import Cycle (github.com/samlitowitz/goimportcycle)",
+	"type": "object",
+	"properties": {
+		"packageName": {
+			"description": "Accepts hex (`#ff0000`), rgb (`rgb(255,0,0)`), and rgba (`rgba(255,0,0,0)`) formatted strings.",
+			"type": "string"
+		},
+		"packageBackground": {
+			"description": "Accepts hex (`#ff0000`), rgb (`rgb(255,0,0)`), and rgba (`rgba(255,0,0,0)`) formatted strings.",
+			"type": "string"
+		},
+		"fileName": {
+			"description": "Accepts hex (`#ff0000`), rgb (`rgb(255,0,0)`), and rgba (`rgba(255,0,0,0)`) formatted strings.",
+			"type": "string"
+		},
+		"fileBackground": {
+			"description": "Accepts hex (`#ff0000`), rgb (`rgb(255,0,0)`), and rgba (`rgba(255,0,0,0)`) formatted strings.",
+			"type": "string"
+		},
+		"importArrow": {
+			"description": "Accepts hex (`#ff0000`), rgb (`rgb(255,0,0)`), and rgba (`rgba(255,0,0,0)`) formatted strings.",
+			"type": "string"
+		}
+	}
+}

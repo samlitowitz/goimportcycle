@@ -1,0 +1,31 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://example.com/goimportcycle/config.schema.json",
+	"title": "Config",
+	"description": "Configuration for Go Import Cycle (github.com/samlitowitz/goimportcycle)",
+	"type": "object",
+	"properties": {
+		"resolution": {
+			"description": "Scope to resolve import cycles to, same as the -resolution flag",
+			"type": "string",
+			"enum": [
+				"file",
+				"package"
+			]
+		},
+		"palette": {
+			"description": "Color palette to use when generating visualizable outputs.",
+			"type": "object",
+			"properties": {
+				"base": {
+					"description": "Colors used for packages and files not in a cycle",
+					"$ref": "https://example.com/goimportcycle/half-palette.schema.json"
+				},
+				"cycle": {
+					"description": "Colors used for packages and files in a cycle",
+					"$ref": "https://example.com/goimportcycle/half-palette.schema.json"
+				}
+			}
+		}
+	}
+}
