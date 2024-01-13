@@ -1,0 +1,14 @@
+resolution: "file"
+palette:
+  base:
+    packageName: "rgb(174, 209, 230)"
+    packageBackground: "rgb(207, 232, 239)"
+    fileName: "rgb(160, 196, 226)"
+    fileBackground: "rgb(198, 219, 240)"
+    importArrow: "rgb(133, 199, 222)"
+  cycle:
+    packageName: "#FFB3C6"
+    packageBackground: "#FFE5EC"
+    fileName: "#FF8FAB"
+    fileBackground: "#FFC2D1"
+    importArrow: "#FB6F92"
