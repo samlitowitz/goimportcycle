@@ -37,7 +37,7 @@ digraph {
 	rankdir="TB";
 	node [shape="rect"];
 `,
-			modulePath,
+			sanitizeForDot(modulePath),
 		),
 	)
 }
@@ -52,7 +52,7 @@ func writeFooter(buf *bytes.Buffer) {
 func pkgNodeName(pkg *internal.Package) string {
 	return fmt.Sprintf(
 		"pkg_%s",
-		pkg.Name,
+		sanitizeForDot(pkg.Name),
 	)
 }
 
@@ -60,12 +60,19 @@ func fileNodeName(file *internal.File) string {
 	if file.Package == nil {
 		return fmt.Sprintf(
 			"file_%s",
-			file.FileName,
+			sanitizeForDot(file.FileName),
 		)
 	}
 	return fmt.Sprintf(
 		"pkg_%s_file_%s",
-		file.Package.Name,
-		strings.TrimSuffix(file.FileName, ".go"),
+		sanitizeForDot(file.Package.Name),
+		sanitizeForDot(strings.TrimSuffix(file.FileName, ".go")),
 	)
+}
+
+func sanitizeForDot(s string) string {
+	for _, forbiddenChar := range ".-" {
+		s = strings.ReplaceAll(s, string(forbiddenChar), "_")
+	}
+	return s
 }
