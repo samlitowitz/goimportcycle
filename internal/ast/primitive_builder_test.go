@@ -7,7 +7,6 @@ import (
 	"go/parser"
 	"go/token"
 	"os"
-	"path/filepath"
 	"runtime"
 	"testing"
 
@@ -53,7 +52,7 @@ func TestPrimitiveBuilder_MarkupImportCycles_None(t *testing.T) {
 								`
 package a
 
-import "testdata/none/b"
+import "example.com/none/b"
 
 func init() {
 	b.Fn()
@@ -74,7 +73,7 @@ func init() {
 								`
 package b
 
-import "testdata/none/c"
+import "example.com/none/c"
 
 func Fb() {
 	c.Fn()
@@ -116,7 +115,7 @@ func Fn() { }
 		testCase := treeNode.name
 		dirOut := make(chan string)
 		depVis, nodeOut := internalAST.NewDependencyVisitor()
-		builder := internalAST.NewPrimitiveBuilder("", tmpDir)
+		builder := internalAST.NewPrimitiveBuilder("example.com", tmpDir+string(os.PathSeparator)+"testdata")
 
 		directoryPathsInOrder := []string{}
 		walkTree(
@@ -128,7 +127,7 @@ func Fn() { }
 				}
 				directoryPathsInOrder = append(
 					directoryPathsInOrder,
-					tmpDir+string(filepath.Separator)+"testdata"+string(filepath.Separator)+path,
+					tmpDir+string(os.PathSeparator)+"testdata"+string(os.PathSeparator)+path,
 				)
 			},
 		)
@@ -301,8 +300,8 @@ func NICFn() { }
 								`
 package a
 
-import "testdata/simple/b"
-import "testdata/simple/notincycle"
+import "example.com/simple/b"
+import "example.com/simple/notincycle"
 
 func AFn() {
 	b.BFn()
@@ -324,7 +323,7 @@ func AFn() {
 								`
 package b
 
-import "testdata/simple/a"
+import "example.com/simple/a"
 
 func BFn() {
 	a.AFn()
@@ -349,7 +348,7 @@ func BFn() {
 		testCase := treeNode.name
 		dirOut := make(chan string)
 		depVis, nodeOut := internalAST.NewDependencyVisitor()
-		builder := internalAST.NewPrimitiveBuilder("", tmpDir)
+		builder := internalAST.NewPrimitiveBuilder("example.com", tmpDir+string(os.PathSeparator)+"testdata")
 
 		directoryPathsInOrder := []string{}
 		walkTree(
@@ -361,7 +360,7 @@ func BFn() {
 				}
 				directoryPathsInOrder = append(
 					directoryPathsInOrder,
-					tmpDir+string(filepath.Separator)+"testdata"+string(filepath.Separator)+path,
+					tmpDir+string(os.PathSeparator)+"testdata"+string(os.PathSeparator)+path,
 				)
 			},
 		)
@@ -545,7 +544,7 @@ func NICFn() { }
 								`
 package a
 
-import "testdata/transitive/b"
+import "example.com/transitive/b"
 
 func AFn() {
 	b.BFn()
@@ -566,7 +565,7 @@ func AFn() {
 								`
 package b
 
-import "testdata/transitive/c"
+import "example.com/transitive/c"
 
 func BFn() {
 	c.CFn()
@@ -587,7 +586,7 @@ func BFn() {
 								`
 package c
 
-import "testdata/transitive/a"
+import "example.com/transitive/a"
 
 func CFn() {
 	a.AFn()
@@ -612,7 +611,7 @@ func CFn() {
 		testCase := treeNode.name
 		dirOut := make(chan string)
 		depVis, nodeOut := internalAST.NewDependencyVisitor()
-		builder := internalAST.NewPrimitiveBuilder("", tmpDir)
+		builder := internalAST.NewPrimitiveBuilder("example.com", tmpDir+string(os.PathSeparator)+"testdata")
 
 		directoryPathsInOrder := []string{}
 		walkTree(
@@ -624,7 +623,7 @@ func CFn() {
 				}
 				directoryPathsInOrder = append(
 					directoryPathsInOrder,
-					tmpDir+string(filepath.Separator)+"testdata"+string(filepath.Separator)+path,
+					tmpDir+string(os.PathSeparator)+"testdata"+string(os.PathSeparator)+path,
 				)
 			},
 		)
@@ -808,8 +807,8 @@ func NICFn() { }
 								`
 package a
 
-import "testdata/multiple_independent/b"
-import "testdata/multiple_independent/c"
+import "example.com/multiple_independent/b"
+import "example.com/multiple_independent/c"
 
 func AFn() {
 	b.BFn()
@@ -831,7 +830,7 @@ func AFn() {
 								`
 package b
 
-import "testdata/multiple_independent/a"
+import "example.com/multiple_independent/a"
 
 func BFn() {
 	a.AFn()
@@ -852,7 +851,7 @@ func BFn() {
 								`
 package c
 
-import "testdata/multiple_independent/a"
+import "example.com/multiple_independent/a"
 
 func CFn() {
 	a.AFn()
@@ -877,7 +876,7 @@ func CFn() {
 		testCase := treeNode.name
 		dirOut := make(chan string)
 		depVis, nodeOut := internalAST.NewDependencyVisitor()
-		builder := internalAST.NewPrimitiveBuilder("", tmpDir)
+		builder := internalAST.NewPrimitiveBuilder("example.com", tmpDir+string(os.PathSeparator)+"testdata")
 
 		directoryPathsInOrder := []string{}
 		walkTree(
@@ -889,7 +888,7 @@ func CFn() {
 				}
 				directoryPathsInOrder = append(
 					directoryPathsInOrder,
-					tmpDir+string(filepath.Separator)+"testdata"+string(filepath.Separator)+path,
+					tmpDir+string(os.PathSeparator)+"testdata"+string(os.PathSeparator)+path,
 				)
 			},
 		)
@@ -1073,7 +1072,7 @@ func NICFn() { }
 								`
 package a
 
-import "testdata/multiple_interlinked/b"
+import "example.com/multiple_interlinked/b"
 
 func AFn() {
 	b.BFn()
@@ -1094,8 +1093,8 @@ func AFn() {
 								`
 package b
 
-import "testdata/multiple_interlinked/a"
-import "testdata/multiple_interlinked/c"
+import "example.com/multiple_interlinked/a"
+import "example.com/multiple_interlinked/c"
 
 func BFn() {
 	a.AFn()
@@ -1117,7 +1116,7 @@ func BFn() {
 								`
 package c
 
-import "testdata/multiple_interlinked/b"
+import "example.com/multiple_interlinked/b"
 
 func CFn() {
 	b.BFn()
@@ -1142,7 +1141,7 @@ func CFn() {
 		testCase := treeNode.name
 		dirOut := make(chan string)
 		depVis, nodeOut := internalAST.NewDependencyVisitor()
-		builder := internalAST.NewPrimitiveBuilder("", tmpDir)
+		builder := internalAST.NewPrimitiveBuilder("example.com", tmpDir+string(os.PathSeparator)+"testdata")
 
 		directoryPathsInOrder := []string{}
 		walkTree(
@@ -1154,7 +1153,7 @@ func CFn() {
 				}
 				directoryPathsInOrder = append(
 					directoryPathsInOrder,
-					tmpDir+string(filepath.Separator)+"testdata"+string(filepath.Separator)+path,
+					tmpDir+string(os.PathSeparator)+"testdata"+string(os.PathSeparator)+path,
 				)
 			},
 		)
@@ -1459,7 +1458,7 @@ func TestPrimitiveBuilder_AddNode_Packages(t *testing.T) {
 					return
 				}
 				pkg := &internal.Package{
-					DirName: tmpDir + string(filepath.Separator) + "testdata" + string(filepath.Separator) + path,
+					DirName: tmpDir + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + path,
 					Name:    n.pkg,
 					Files:   nil,
 				}
@@ -1467,7 +1466,7 @@ func TestPrimitiveBuilder_AddNode_Packages(t *testing.T) {
 
 				directoryPathsInOrder = append(
 					directoryPathsInOrder,
-					tmpDir+string(filepath.Separator)+"testdata"+string(filepath.Separator)+path,
+					tmpDir+string(os.PathSeparator)+"testdata"+string(os.PathSeparator)+path,
 				)
 			},
 		)
@@ -1730,7 +1729,7 @@ func TestPrimitiveBuilder_AddNode_Files(t *testing.T) {
 					file := &internal.File{
 						Package:  nil,
 						FileName: n.name,
-						AbsPath:  tmpDir + string(filepath.Separator) + "testdata" + string(filepath.Separator) + path,
+						AbsPath:  tmpDir + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + path,
 						Imports:  nil,
 						Decls:    nil,
 					}
@@ -1739,7 +1738,7 @@ func TestPrimitiveBuilder_AddNode_Files(t *testing.T) {
 				}
 				directoryPathsInOrder = append(
 					directoryPathsInOrder,
-					tmpDir+string(filepath.Separator)+"testdata"+string(filepath.Separator)+path,
+					tmpDir+string(os.PathSeparator)+"testdata"+string(os.PathSeparator)+path,
 				)
 			},
 		)
@@ -2064,7 +2063,7 @@ func init() {
 				}
 				directoryPathsInOrder = append(
 					directoryPathsInOrder,
-					tmpDir+string(filepath.Separator)+"testdata"+string(filepath.Separator)+path,
+					tmpDir+string(os.PathSeparator)+"testdata"+string(os.PathSeparator)+path,
 				)
 			},
 		)
@@ -2349,7 +2348,7 @@ func CFn() { }
 				}
 				directoryPathsInOrder = append(
 					directoryPathsInOrder,
-					tmpDir+string(filepath.Separator)+"testdata"+string(filepath.Separator)+path,
+					tmpDir+string(os.PathSeparator)+"testdata"+string(os.PathSeparator)+path,
 				)
 			},
 		)
@@ -2735,7 +2734,7 @@ type B struct { }
 				}
 				directoryPathsInOrder = append(
 					directoryPathsInOrder,
-					tmpDir+string(filepath.Separator)+"testdata"+string(filepath.Separator)+path,
+					tmpDir+string(os.PathSeparator)+"testdata"+string(os.PathSeparator)+path,
 				)
 			},
 		)
@@ -3073,7 +3072,7 @@ type %s_TYPE struct {}
 				}
 				directoryPathsInOrder = append(
 					directoryPathsInOrder,
-					tmpDir+string(filepath.Separator)+"testdata"+string(filepath.Separator)+path,
+					tmpDir+string(os.PathSeparator)+"testdata"+string(os.PathSeparator)+path,
 				)
 			},
 		)
@@ -3447,7 +3446,7 @@ func init() {
 				}
 				directoryPathsInOrder = append(
 					directoryPathsInOrder,
-					tmpDir+string(filepath.Separator)+"testdata"+string(filepath.Separator)+path,
+					tmpDir+string(os.PathSeparator)+"testdata"+string(os.PathSeparator)+path,
 				)
 			},
 		)

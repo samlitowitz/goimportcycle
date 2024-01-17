@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -23,13 +24,17 @@ func (pkg Package) ImportPath() string {
 	if pkg.Name == "main" {
 		return ""
 	}
-	if strings.HasPrefix(pkg.DirName, pkg.ModuleRoot) {
+	moduleRoot := pkg.ModuleRoot
+	if strings.LastIndex(moduleRoot, string(os.PathSeparator)) != len(pkg.ModuleRoot)-1 {
+		moduleRoot += string(os.PathSeparator)
+	}
+	if strings.HasPrefix(pkg.DirName, moduleRoot) {
 		return fmt.Sprintf(
 			"%s/%s",
 			pkg.ModulePath,
 			strings.TrimPrefix(
 				pkg.DirName,
-				pkg.ModuleRoot+string(filepath.Separator),
+				moduleRoot,
 			),
 		)
 	}
