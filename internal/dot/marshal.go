@@ -2,7 +2,9 @@ package dot
 
 import (
 	"bytes"
+	"cmp"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/samlitowitz/goimportcycle/internal/config"
@@ -11,6 +13,8 @@ import (
 )
 
 func Marshal(cfg *config.Config, modulePath string, pkgs []*internal.Package) ([]byte, error) {
+	slices.SortFunc(pkgs, pkgCmpFn)
+
 	buf := &bytes.Buffer{}
 
 	writeHeader(buf, modulePath)
@@ -27,17 +31,20 @@ func Marshal(cfg *config.Config, modulePath string, pkgs []*internal.Package) ([
 	return buf.Bytes(), nil
 }
 
+func pkgCmpFn(a, b *internal.Package) int {
+	return cmp.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name))
+}
+
 func writeHeader(buf *bytes.Buffer, modulePath string) {
 	buf.WriteString(
 		fmt.Sprintf(
-			`
-digraph {
+			`digraph {
 	labelloc="t";
 	label="%s";
 	rankdir="TB";
 	node [shape="rect"];
 `,
-			sanitizeForDot(modulePath),
+			modulePath,
 		),
 	)
 }
@@ -52,7 +59,7 @@ func writeFooter(buf *bytes.Buffer) {
 func pkgNodeName(pkg *internal.Package) string {
 	return fmt.Sprintf(
 		"pkg_%s",
-		sanitizeForDot(pkg.Name),
+		pkg.Name,
 	)
 }
 
@@ -60,19 +67,12 @@ func fileNodeName(file *internal.File) string {
 	if file.Package == nil {
 		return fmt.Sprintf(
 			"file_%s",
-			sanitizeForDot(file.FileName),
+			file.FileName,
 		)
 	}
 	return fmt.Sprintf(
 		"pkg_%s_file_%s",
-		sanitizeForDot(file.Package.Name),
-		sanitizeForDot(strings.TrimSuffix(file.FileName, ".go")),
+		file.Package.Name,
+		strings.TrimSuffix(file.FileName, ".go"),
 	)
-}
-
-func sanitizeForDot(s string) string {
-	for _, forbiddenChar := range ".-" {
-		s = strings.ReplaceAll(s, string(forbiddenChar), "_")
-	}
-	return s
 }
