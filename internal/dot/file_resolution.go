@@ -10,7 +10,7 @@ import (
 
 func writeNodeDefsForFileResolution(buf *bytes.Buffer, cfg *config.Config, pkgs []*internal.Package) {
 	clusterDefHeader := `
-	subgraph cluster_%s {
+	subgraph "cluster_%s" {
 		label="%s";
 		style="filled";
 		fontcolor="%s";
@@ -20,7 +20,7 @@ func writeNodeDefsForFileResolution(buf *bytes.Buffer, cfg *config.Config, pkgs 
 	};
 `
 	nodeDef := `
-		%s [label="%s", style="filled", fontcolor="%s", fillcolor="%s"];`
+		"%s" [label="%s", style="filled", fontcolor="%s", fillcolor="%s"];`
 
 	for _, pkg := range pkgs {
 		if pkg.IsStub {
@@ -74,7 +74,7 @@ func writeNodeDefsForFileResolution(buf *bytes.Buffer, cfg *config.Config, pkgs 
 
 func writeRelationshipsForFileResolution(buf *bytes.Buffer, cfg *config.Config, pkgs []*internal.Package) {
 	edgeDef := `
-	%s -> %s [color="%s"];`
+	"%s" -> "%s" [color="%s"];`
 
 	for _, pkg := range pkgs {
 		if pkg.IsStub {

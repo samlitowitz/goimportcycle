@@ -10,7 +10,7 @@ import (
 
 func writeNodeDefsForPackageResolution(buf *bytes.Buffer, cfg *config.Config, pkgs []*internal.Package) {
 	nodeDef := `
-	%s [label="%s", style="filled", fontcolor="%s", fillcolor="%s"];`
+	"%s" [label="%s", style="filled", fontcolor="%s", fillcolor="%s"];`
 
 	for _, pkg := range pkgs {
 		if pkg.IsStub {
@@ -40,7 +40,7 @@ func writeNodeDefsForPackageResolution(buf *bytes.Buffer, cfg *config.Config, pk
 
 func writeRelationshipsForPackageResolution(buf *bytes.Buffer, cfg *config.Config, pkgs []*internal.Package) {
 	edgeDef := `
-	%s -> %s [color="%s"];`
+	"%s" -> "%s" [color="%s"];`
 
 	for _, pkg := range pkgs {
 		if pkg.IsStub {
