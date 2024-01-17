@@ -1,14 +1,13 @@
-
 digraph {
 	labelloc="t";
 	label="github.com/samlitowitz/goimportcycle/examples/simple";
 	rankdir="TB";
 	node [shape="rect"];
 
-	pkg_b [label="b", style="filled", fontcolor="#ffb3c6", fillcolor="#ffe5ec"];
-	pkg_main [label="main", style="filled", fontcolor="#aed1e6", fillcolor="#cfe8ef"];
-	pkg_a [label="a", style="filled", fontcolor="#ffb3c6", fillcolor="#ffe5ec"];
-	pkg_b -> pkg_a [color="#fb6f92"];
-	pkg_main -> pkg_a [color="#85c7de"];
-	pkg_a -> pkg_b [color="#fb6f92"];
+	"pkg_a" [label="a", style="filled", fontcolor="#ffb3c6", fillcolor="#ffe5ec"];
+	"pkg_b" [label="b", style="filled", fontcolor="#ffb3c6", fillcolor="#ffe5ec"];
+	"pkg_main" [label="main", style="filled", fontcolor="#aed1e6", fillcolor="#cfe8ef"];
+	"pkg_a" -> "pkg_b" [color="#fb6f92"];
+	"pkg_b" -> "pkg_a" [color="#fb6f92"];
+	"pkg_main" -> "pkg_a" [color="#85c7de"];
 }
