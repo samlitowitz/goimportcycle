@@ -370,6 +370,7 @@ func (builder *PrimitiveBuilder) addSelectorExpr(node *SelectorExpr) error {
 	// if not file is found, attempt to add to a stub file
 	if !foundDecl {
 		if stubFile == nil {
+			// when stub is empty return
 			return nil
 		}
 		stubDecl, isDeclInStub := stubFile.Decls[decl.UID()]
