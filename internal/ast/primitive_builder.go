@@ -1,6 +1,7 @@
 package ast
 
 import (
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/token"
@@ -145,7 +146,7 @@ func (builder *PrimitiveBuilder) addPackage(node *Package) error {
 	pkg, pkgExists := builder.packagesByUID[newPkgUID]
 
 	if pkgExists && !pkg.IsStub {
-		// return custom error, duplicate package
+		return fmt.Errorf("add package: duplicate package: %s", newPkg.ImportPath())
 	}
 
 	// replace stub with the real thing
@@ -176,7 +177,7 @@ func (builder *PrimitiveBuilder) addPackage(node *Package) error {
 
 func (builder *PrimitiveBuilder) addFile(node *File) error {
 	if builder.curPkg == nil {
-		// return custom error, undefined package
+		return fmt.Errorf("add file: no package defined: %s", node.AbsPath)
 	}
 	file := &internal.File{
 		Package:  builder.packagesByUID[builder.curPkg.UID()],
@@ -187,7 +188,7 @@ func (builder *PrimitiveBuilder) addFile(node *File) error {
 	}
 	fileUID := file.UID()
 	if _, ok := builder.filesByUID[fileUID]; ok {
-		// return custom error, duplicate file
+		return fmt.Errorf("add file: duplicate file: %s", node.AbsPath)
 	}
 
 	pkgUID := builder.curPkg.UID()
@@ -200,10 +201,10 @@ func (builder *PrimitiveBuilder) addFile(node *File) error {
 
 func (builder *PrimitiveBuilder) addImport(node *ImportSpec) error {
 	if builder.curPkg == nil {
-		// return custom error, undefined package
+		return fmt.Errorf("add import: no package defined: %s \"%s\"", node.Name.String(), node.Path.Value)
 	}
 	if builder.curFile == nil {
-		// return custom error, undefined file
+		return fmt.Errorf("add import: no file defined: %s \"%s\"", node.Name.String(), node.Path.Value)
 	}
 	imp := &internal.Import{
 		Name:                   node.Name.String(),
@@ -216,7 +217,7 @@ func (builder *PrimitiveBuilder) addImport(node *ImportSpec) error {
 	}
 	impUID := imp.UID()
 	if _, ok := builder.curFile.Imports[impUID]; ok {
-		// return custom error, duplicate import
+		return fmt.Errorf("add import: duplicate import: %s \"%s\"", node.Name.String(), node.Path.Value)
 	}
 
 	// if the package exists, use it, otherwise use a stub
@@ -239,17 +240,17 @@ func (builder *PrimitiveBuilder) addImport(node *ImportSpec) error {
 
 func (builder *PrimitiveBuilder) addFuncDecl(node *FuncDecl) error {
 	if builder.curPkg == nil {
-		// return custom error, undefined package
+		return fmt.Errorf("add func decl: no package defined: %s", node.QualifiedName)
 	}
 	if builder.curFile == nil {
-		// return custom error, undefined file
+		return fmt.Errorf("add func decl: no file defined: %s", node.QualifiedName)
 	}
 	if node.Name.String() == "" {
-		// return custom error, invalid function name
+		return fmt.Errorf("add func decl: invalid function name")
 	}
 	declUID := node.QualifiedName
 	if _, ok := builder.curFile.Decls[declUID]; ok {
-		// return custom error, duplicate decl
+		return fmt.Errorf("add func decl: duplicate declaration: %s", node.QualifiedName)
 	}
 	// TODO: receiver methods should never be received and should be skipped
 	var receiverDecl *internal.Decl
@@ -272,22 +273,22 @@ func (builder *PrimitiveBuilder) addFuncDecl(node *FuncDecl) error {
 
 func (builder *PrimitiveBuilder) addGenDecl(node *ast.GenDecl) error {
 	if builder.curPkg == nil {
-		// return custom error, undefined package
+		return errors.New("add gen decl: no package defined")
 	}
 	if builder.curFile == nil {
-		// return custom error, undefined file
+		return errors.New("add gen decl: no file defined")
 	}
 	for _, spec := range node.Specs {
 		switch spec := spec.(type) {
 		case *ast.TypeSpec:
 			if node.Tok != token.TYPE {
-				// return custom error, invalid declaration
+				return errors.New("add gen decl: invalid declaration")
 			}
 			if _, ok := builder.curFile.Decls[spec.Name.String()]; ok {
-				// return custom error, duplicate decl
+				return errors.New("add gen decl: duplicate declaration")
 			}
 			if spec.Name.String() == "" {
-				// return custom error, invalid type name
+				return errors.New("add gen decl: invalid name")
 			}
 			decl := &internal.Decl{
 				File:         builder.curFile,
@@ -299,14 +300,14 @@ func (builder *PrimitiveBuilder) addGenDecl(node *ast.GenDecl) error {
 
 		case *ast.ValueSpec:
 			if node.Tok != token.CONST && node.Tok != token.VAR {
-				// return custom error, invalid declaration
+				return errors.New("add gen decl: invalid declaration")
 			}
 			for _, name := range spec.Names {
 				if _, ok := builder.curFile.Decls[name.String()]; ok {
-					// return custom error, duplicate decl
+					return errors.New("add gen decl: duplicate declaration")
 				}
 				if name.String() == "" {
-					// return custom error, invalid const/var name
+					return errors.New("add gen decl: invalid constant or variable name")
 				}
 				decl := &internal.Decl{
 					File:         builder.curFile,
@@ -318,7 +319,7 @@ func (builder *PrimitiveBuilder) addGenDecl(node *ast.GenDecl) error {
 			}
 
 		default:
-			// return custom error, unhandled spec type
+			return errors.New("add gen decl: unhandled spec type")
 		}
 	}
 	return nil
@@ -326,15 +327,15 @@ func (builder *PrimitiveBuilder) addGenDecl(node *ast.GenDecl) error {
 
 func (builder *PrimitiveBuilder) addSelectorExpr(node *SelectorExpr) error {
 	if builder.curPkg == nil {
-		// return custom error, undefined package
+		return fmt.Errorf("add selector expr: no package defined: %s", node.Sel.String())
 	}
 	if builder.curFile == nil {
-		// return custom error, undefined file
+		return fmt.Errorf("add selector expr: no file defined: %s", node.Sel.String())
 	}
 	imp, hasImp := builder.curFile.Imports[node.ImportName]
 
 	if !hasImp {
-		// return custom error, undefined import
+		return fmt.Errorf("add selector expr: no import defined: %s", node.Sel.String())
 	}
 
 	decl := &internal.Decl{
@@ -347,7 +348,7 @@ func (builder *PrimitiveBuilder) addSelectorExpr(node *SelectorExpr) error {
 	}
 
 	if imp.Package == nil {
-		// return custom error, undefined package
+		return fmt.Errorf("add selector expr: no package defined here: %s", node.Sel.String())
 	}
 
 	// attempt to find file where declaration is defined
@@ -370,7 +371,7 @@ func (builder *PrimitiveBuilder) addSelectorExpr(node *SelectorExpr) error {
 	// if not file is found, attempt to add to a stub file
 	if !foundDecl {
 		if stubFile == nil {
-			// return custom error, import should have created stub file
+			return fmt.Errorf("add selector expr: no stub file defined: %s", node.Sel.String())
 		}
 		stubDecl, isDeclInStub := stubFile.Decls[decl.UID()]
 		if isDeclInStub {
@@ -384,7 +385,7 @@ func (builder *PrimitiveBuilder) addSelectorExpr(node *SelectorExpr) error {
 	}
 
 	if decl.File == nil {
-		// return custom error, missing type declaration
+		return fmt.Errorf("add selector expr: missing type declaration: %s", node.Sel.String())
 	}
 
 	imp.ReferencedTypes[decl.Name] = decl

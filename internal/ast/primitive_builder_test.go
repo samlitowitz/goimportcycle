@@ -2310,7 +2310,7 @@ func CFn() { }
 		testCase := treeNode.name
 		dirOut := make(chan string)
 		depVis, nodeOut := internalAST.NewDependencyVisitor()
-		builder := internalAST.NewPrimitiveBuilder("", tmpDir)
+		builder := internalAST.NewPrimitiveBuilder("testdata", tmpDir+string(os.PathSeparator)+"testdata")
 
 		expectedImportSpecs := []*internal.Import{
 			{
@@ -2362,7 +2362,7 @@ func CFn() { }
 			close(dirOut)
 		}()
 
-		go func() {
+		go func(t *testing.T) {
 			for {
 				select {
 				case dirPath, ok := <-dirOut:
@@ -2386,7 +2386,7 @@ func CFn() { }
 					return
 				}
 			}
-		}()
+		}(t)
 
 		go func() {
 			for {
