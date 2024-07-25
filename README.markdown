@@ -4,7 +4,7 @@
 `goimportcycle` is a tool to visualize Go imports resolved to the package or file level.
 
 # Installation
-`go install github.com/samlitowitz/goimportcycle/cmd/goimportcycle@v1.0.6`
+`go install github.com/samlitowitz/goimportcycle/cmd/goimportcycle@latest`
 
 # Usage
 ```shell
