@@ -1,6 +1,6 @@
 {
 	"$schema": "https://json-schema.org/draft/2020-12/schema",
-	"$id": "https://github.com/samlitowitz/goimportcycle/blob/master/assets/config-schema/config.json",
+	"$id": "https://raw.githubusercontent.com/samlitowitz/goimportcycle/refs/heads/master/assets/config-schema/config.json",
 	"title": "Config",
 	"description": "Configuration for Go Import Cycle (github.com/samlitowitz/goimportcycle)",
 	"type": "object",
@@ -19,11 +19,11 @@
 			"properties": {
 				"base": {
 					"description": "Colors used for packages and files not in a cycle",
-					"$ref": "https://github.com/samlitowitz/goimportcycle/blob/master/assets/config-schema/half-palette.json"
+					"$ref": "https://raw.githubusercontent.com/samlitowitz/goimportcycle/refs/heads/master/assets/config-schema/half-palette.json"
 				},
 				"cycle": {
 					"description": "Colors used for packages and files in a cycle",
-					"$ref": "https://github.com/samlitowitz/goimportcycle/blob/master/assets/config-schema/half-palette.json"
+					"$ref": "https://raw.githubusercontent.com/samlitowitz/goimportcycle/refs/heads/master/assets/config-schema/half-palette.json"
 				}
 			}
 		}

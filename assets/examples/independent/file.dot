@@ -40,8 +40,8 @@ digraph {
 		"pkg_main_file_main" [label="main.go", style="filled", fontcolor="#000000", fillcolor="#ffffff"];
 	};
 
-	"pkg_a_file_a" -> "pkg_b_file_b" [color="#ff0000"];
 	"pkg_a_file_a" -> "pkg_c_file_c" [color="#ff0000"];
+	"pkg_a_file_a" -> "pkg_b_file_b" [color="#ff0000"];
 	"pkg_b_file_b" -> "pkg_a_file_a" [color="#ff0000"];
 	"pkg_c_file_c" -> "pkg_a_file_a" [color="#ff0000"];
 	"pkg_main_file_main" -> "pkg_a_file_a" [color="#000000"];
