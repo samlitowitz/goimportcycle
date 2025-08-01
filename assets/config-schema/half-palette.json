@@ -1,6 +1,6 @@
 {
 	"$schema": "https://json-schema.org/draft/2020-12/schema",
-	"$id": "https://example.com/goimportcycle/half-palette.schema.json",
+	"$id": "https://github.com/samlitowitz/goimportcycle/blob/master/assets/config-schema/half-palette.json",
 	"title": "Config",
 	"description": "Half-palette definition for Go Import Cycle (github.com/samlitowitz/goimportcycle)",
 	"type": "object",
